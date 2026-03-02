@@ -53,3 +53,42 @@ class ProfileRunResponse(BaseModel):
     column_count: int
     duplicate_rows: int
     columns: list[ColumnProfileResponse]
+
+
+class InferenceRunResponse(BaseModel):
+    inference_run_id: str
+    created_at: datetime
+    candidate_count: int
+
+
+class RelationshipCandidateResponse(BaseModel):
+    candidate_id: str
+    inference_run_id: str
+    child_dataset_name: str
+    child_column: str
+    parent_dataset_name: str
+    parent_column: str
+    overlap_ratio: float
+    parent_coverage_ratio: float
+    name_score: float
+    type_score: float
+    confidence_score: float
+    cardinality_hint: str
+    status: str
+    rationale: str
+    evidence: dict = Field(default_factory=dict)
+    created_at: datetime
+
+
+class RelationshipDecisionRequest(BaseModel):
+    candidate_id: str
+    decision: str
+    reviewer_notes: str | None = None
+
+
+class RelationshipDecisionResponse(BaseModel):
+    decision_id: str
+    candidate_id: str
+    decision: str
+    reviewer_notes: str | None = None
+    decided_at: datetime

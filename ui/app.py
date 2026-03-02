@@ -1,13 +1,14 @@
-﻿import json
-
-import pandas as pd
+﻿import pandas as pd
 import requests
 import streamlit as st
 
 API_BASE = st.sidebar.text_input("API Base URL", "http://localhost:8000")
 
-st.title("DataForge - Phase 1 Console")
-page = st.sidebar.radio("Page", ["Upload", "Dataset Inventory", "Profiling Summary"])
+st.title("DataForge - Console")
+page = st.sidebar.radio(
+    "Page",
+    ["Upload", "Dataset Inventory", "Profiling Summary", "Relationship Inference"],
+)
 
 if page == "Upload":
     st.header("Upload Dataset (CSV/XLSX)")
@@ -43,7 +44,10 @@ elif page == "Profiling Summary":
         if not datasets:
             st.info("Upload a dataset first.")
         else:
-            options = {f"{d['dataset_name']} ({d['dataset_id'][:8]})": d["dataset_id"] for d in datasets}
+            options = {
+                f"{d['dataset_name']} ({d['dataset_id'][:8]})": d["dataset_id"]
+                for d in datasets
+            }
             selected = st.selectbox("Dataset", list(options.keys()))
             if st.button("Load Profile"):
                 profile_resp = requests.get(f"{API_BASE}/profiles/{options[selected]}", timeout=30)
@@ -62,3 +66,64 @@ elif page == "Profiling Summary":
                     st.dataframe(pd.DataFrame(profile["columns"]), use_container_width=True)
                 else:
                     st.error(profile_resp.text)
+
+elif page == "Relationship Inference":
+    st.header("Relationship Inference")
+
+    if st.button("Run Inference"):
+        run_resp = requests.post(f"{API_BASE}/inference/run", timeout=90)
+        if run_resp.ok:
+            st.success("Inference run completed")
+            st.json(run_resp.json())
+        else:
+            st.error(run_resp.text)
+
+    candidates_resp = requests.get(f"{API_BASE}/inference/candidates", timeout=30)
+    if not candidates_resp.ok:
+        st.info("No inference results yet. Run inference first.")
+    else:
+        candidates = candidates_resp.json()
+        if not candidates:
+            st.info("No candidates found yet. Upload more related datasets and run inference.")
+        else:
+            frame = pd.DataFrame(candidates)
+            st.subheader("Candidates")
+            st.dataframe(
+                frame[
+                    [
+                        "candidate_id",
+                        "child_dataset_name",
+                        "child_column",
+                        "parent_dataset_name",
+                        "parent_column",
+                        "confidence_score",
+                        "cardinality_hint",
+                        "status",
+                    ]
+                ],
+                use_container_width=True,
+            )
+
+            id_map = {
+                f"{row['child_dataset_name']}.{row['child_column']} -> {row['parent_dataset_name']}.{row['parent_column']} ({row['confidence_score']})": row["candidate_id"]
+                for row in candidates
+            }
+            selected = st.selectbox("Select candidate", list(id_map.keys()))
+            decision = st.radio("Decision", ["ACCEPTED", "REJECTED"], horizontal=True)
+            notes = st.text_input("Reviewer notes (optional)")
+
+            if st.button("Save Decision"):
+                decision_resp = requests.post(
+                    f"{API_BASE}/inference/decide",
+                    json={
+                        "candidate_id": id_map[selected],
+                        "decision": decision,
+                        "reviewer_notes": notes or None,
+                    },
+                    timeout=30,
+                )
+                if decision_resp.ok:
+                    st.success("Decision saved")
+                    st.json(decision_resp.json())
+                else:
+                    st.error(decision_resp.text)

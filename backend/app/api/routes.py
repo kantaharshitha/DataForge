@@ -1,4 +1,4 @@
-﻿"""API routes for Phase 1 operations."""
+﻿"""API routes for DataForge operations."""
 
 from __future__ import annotations
 
@@ -10,10 +10,19 @@ from app.db import get_conn
 from app.models import (
     DatasetSummary,
     HealthResponse,
+    InferenceRunResponse,
     ProfileRunResponse,
+    RelationshipCandidateResponse,
+    RelationshipDecisionRequest,
+    RelationshipDecisionResponse,
     UploadResponse,
 )
 from app.services.ingestion import ingest_file
+from app.services.inference import (
+    decide_relationship_candidate,
+    list_relationship_candidates,
+    run_relationship_inference,
+)
 
 router = APIRouter()
 
@@ -112,3 +121,28 @@ def get_latest_profile(dataset_id: str) -> ProfileRunResponse:
             for row in results
         ],
     )
+
+
+@router.post("/inference/run", response_model=InferenceRunResponse)
+def run_inference() -> InferenceRunResponse:
+    result = run_relationship_inference()
+    return InferenceRunResponse(**result)
+
+
+@router.get("/inference/candidates", response_model=list[RelationshipCandidateResponse])
+def get_inference_candidates(inference_run_id: str | None = None) -> list[RelationshipCandidateResponse]:
+    rows = list_relationship_candidates(inference_run_id=inference_run_id)
+    return [RelationshipCandidateResponse(**row) for row in rows]
+
+
+@router.post("/inference/decide", response_model=RelationshipDecisionResponse)
+def decide_inference_candidate(request: RelationshipDecisionRequest) -> RelationshipDecisionResponse:
+    try:
+        result = decide_relationship_candidate(
+            candidate_id=request.candidate_id,
+            decision=request.decision,
+            reviewer_notes=request.reviewer_notes,
+        )
+        return RelationshipDecisionResponse(**result)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
