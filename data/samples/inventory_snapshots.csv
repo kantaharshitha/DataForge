@@ -1,0 +1,4 @@
+﻿snapshot_date,product_id,warehouse_id,on_hand_qty,reserved_qty,reorder_point,stockout_flag
+2026-02-01,P001,W1,150,12,30,false
+2026-02-01,P002,W1,80,20,25,false
+2026-02-01,P003,W1,0,0,15,true

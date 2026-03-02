@@ -1,0 +1,4 @@
+﻿product_id,sku,product_name,category,brand,unit_cost,list_price,active_flag
+P001,SKU-1001,Widget Alpha,Gadgets,Forge,12.50,24.99,true
+P002,SKU-1002,Widget Beta,Gadgets,Forge,10.00,19.99,true
+P003,SKU-1003,Gizmo One,Tools,Forge,21.00,39.99,true

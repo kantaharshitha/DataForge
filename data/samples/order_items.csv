@@ -1,0 +1,4 @@
+﻿order_item_id,order_id,product_id,quantity,unit_price,discount_amount,tax_amount,line_total
+OI001,O1001,P001,2,24.99,0,2.50,52.48
+OI002,O1001,P002,1,19.99,1.00,1.20,20.19
+OI003,O1002,P003,1,39.99,0,3.20,43.19

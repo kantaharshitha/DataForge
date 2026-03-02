@@ -1,0 +1,64 @@
+﻿import json
+
+import pandas as pd
+import requests
+import streamlit as st
+
+API_BASE = st.sidebar.text_input("API Base URL", "http://localhost:8000")
+
+st.title("DataForge - Phase 1 Console")
+page = st.sidebar.radio("Page", ["Upload", "Dataset Inventory", "Profiling Summary"])
+
+if page == "Upload":
+    st.header("Upload Dataset (CSV/XLSX)")
+    uploaded = st.file_uploader("Choose a file", type=["csv", "xlsx", "xls"])
+    if uploaded and st.button("Ingest + Profile"):
+        files = {"file": (uploaded.name, uploaded.getvalue())}
+        response = requests.post(f"{API_BASE}/upload", files=files, timeout=120)
+        if response.ok:
+            st.success("Upload complete")
+            st.json(response.json())
+        else:
+            st.error(response.text)
+
+elif page == "Dataset Inventory":
+    st.header("Dataset Registry")
+    response = requests.get(f"{API_BASE}/datasets", timeout=30)
+    if response.ok:
+        rows = response.json()
+        if rows:
+            st.dataframe(pd.DataFrame(rows), use_container_width=True)
+        else:
+            st.info("No datasets registered yet.")
+    else:
+        st.error(response.text)
+
+elif page == "Profiling Summary":
+    st.header("Latest Profiling Run")
+    datasets_resp = requests.get(f"{API_BASE}/datasets", timeout=30)
+    if not datasets_resp.ok:
+        st.error("Could not load datasets")
+    else:
+        datasets = datasets_resp.json()
+        if not datasets:
+            st.info("Upload a dataset first.")
+        else:
+            options = {f"{d['dataset_name']} ({d['dataset_id'][:8]})": d["dataset_id"] for d in datasets}
+            selected = st.selectbox("Dataset", list(options.keys()))
+            if st.button("Load Profile"):
+                profile_resp = requests.get(f"{API_BASE}/profiles/{options[selected]}", timeout=30)
+                if profile_resp.ok:
+                    profile = profile_resp.json()
+                    st.subheader("Run Summary")
+                    st.json(
+                        {
+                            "run_id": profile["run_id"],
+                            "dataset_name": profile["dataset_name"],
+                            "row_count": profile["row_count"],
+                            "duplicate_rows": profile["duplicate_rows"],
+                        }
+                    )
+                    st.subheader("Column Metrics")
+                    st.dataframe(pd.DataFrame(profile["columns"]), use_container_width=True)
+                else:
+                    st.error(profile_resp.text)

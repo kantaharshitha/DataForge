@@ -1,0 +1,4 @@
+﻿order_id,order_date,customer_id,channel,order_status,payment_status,ship_date,currency_code
+O1001,2026-02-01,C001,Online,Completed,Paid,2026-02-02,USD
+O1002,2026-02-01,C002,Retail,Completed,Paid,2026-02-03,USD
+O1003,2026-02-05,C001,Online,Processing,Pending,,USD
