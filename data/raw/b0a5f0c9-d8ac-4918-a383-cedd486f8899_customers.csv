@@ -1,4 +1,0 @@
-﻿customer_id,customer_name,email,segment,region,signup_date,status
-C001,Acme Corp,ops@acme.com,Enterprise,West,2025-01-10,Active
-C002,Northwind LLC,contact@northwind.com,SMB,East,2025-02-02,Active
-C003,Blue River Inc,hello@blueriver.com,Enterprise,Central,2025-02-15,Active
