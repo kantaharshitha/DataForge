@@ -11,17 +11,27 @@ from app.models import (
     DatasetSummary,
     HealthResponse,
     InferenceRunResponse,
+    LatestTrustScoreResponse,
     ProfileRunResponse,
     RelationshipCandidateResponse,
     RelationshipDecisionRequest,
     RelationshipDecisionResponse,
     UploadResponse,
+    ValidationRunDetailResponse,
+    ValidationRunResponse,
+    ValidationRunSummaryResponse,
 )
 from app.services.ingestion import ingest_file
 from app.services.inference import (
     decide_relationship_candidate,
     list_relationship_candidates,
     run_relationship_inference,
+)
+from app.services.validation import (
+    get_latest_trust_score,
+    get_validation_results,
+    list_validation_runs,
+    run_validation,
 )
 
 router = APIRouter()
@@ -146,3 +156,30 @@ def decide_inference_candidate(request: RelationshipDecisionRequest) -> Relation
         return RelationshipDecisionResponse(**result)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/validation/run", response_model=ValidationRunResponse)
+def execute_validation() -> ValidationRunResponse:
+    result = run_validation()
+    return ValidationRunResponse(**result)
+
+
+@router.get("/validation/runs", response_model=list[ValidationRunSummaryResponse])
+def get_validation_runs() -> list[ValidationRunSummaryResponse]:
+    return [ValidationRunSummaryResponse(**row) for row in list_validation_runs()]
+
+
+@router.get("/validation/results/{validation_run_id}", response_model=ValidationRunDetailResponse)
+def get_validation_run_results(validation_run_id: str) -> ValidationRunDetailResponse:
+    try:
+        return ValidationRunDetailResponse(**get_validation_results(validation_run_id))
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/trust/latest", response_model=LatestTrustScoreResponse)
+def get_latest_trust() -> LatestTrustScoreResponse:
+    try:
+        return LatestTrustScoreResponse(**get_latest_trust_score())
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc

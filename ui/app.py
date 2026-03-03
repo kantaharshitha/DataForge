@@ -7,7 +7,13 @@ API_BASE = st.sidebar.text_input("API Base URL", "http://localhost:8000")
 st.title("DataForge - Console")
 page = st.sidebar.radio(
     "Page",
-    ["Upload", "Dataset Inventory", "Profiling Summary", "Relationship Inference"],
+    [
+        "Upload",
+        "Dataset Inventory",
+        "Profiling Summary",
+        "Relationship Inference",
+        "Validation & Trust",
+    ],
 )
 
 if page == "Upload":
@@ -105,7 +111,11 @@ elif page == "Relationship Inference":
             )
 
             id_map = {
-                f"{row['child_dataset_name']}.{row['child_column']} -> {row['parent_dataset_name']}.{row['parent_column']} ({row['confidence_score']})": row["candidate_id"]
+                (
+                    f"{row['child_dataset_name']}.{row['child_column']} -> "
+                    f"{row['parent_dataset_name']}.{row['parent_column']} "
+                    f"({row['confidence_score']})"
+                ): row["candidate_id"]
                 for row in candidates
             }
             selected = st.selectbox("Select candidate", list(id_map.keys()))
@@ -127,3 +137,64 @@ elif page == "Relationship Inference":
                     st.json(decision_resp.json())
                 else:
                     st.error(decision_resp.text)
+
+elif page == "Validation & Trust":
+    st.header("Validation & Trust Score")
+
+    if st.button("Run Validation"):
+        run_resp = requests.post(f"{API_BASE}/validation/run", timeout=120)
+        if run_resp.ok:
+            st.success("Validation run completed")
+            st.json(run_resp.json())
+        else:
+            st.error(run_resp.text)
+
+    latest_resp = requests.get(f"{API_BASE}/trust/latest", timeout=30)
+    if latest_resp.ok:
+        latest = latest_resp.json()
+        st.subheader("Latest Trust Score")
+        st.metric("Trust Score", latest["trust_score"])
+        st.json(
+            {
+                "validation_run_id": latest["validation_run_id"],
+                "status": latest["status"],
+                "dimension_scores": latest["dimension_scores"],
+            }
+        )
+    else:
+        st.info("No validation runs yet.")
+
+    runs_resp = requests.get(f"{API_BASE}/validation/runs", timeout=30)
+    if not runs_resp.ok:
+        st.error("Could not load validation runs")
+    else:
+        runs = runs_resp.json()
+        if not runs:
+            st.info("No validation history yet.")
+        else:
+            st.subheader("Validation Run History")
+            st.dataframe(pd.DataFrame(runs), use_container_width=True)
+
+            options = {
+                f"{r['validation_run_id'][:8]} | {r['status']} | score={r['trust_score']}": r["validation_run_id"]
+                for r in runs
+            }
+            selected_run = st.selectbox("Select validation run", list(options.keys()))
+
+            details_resp = requests.get(
+                f"{API_BASE}/validation/results/{options[selected_run]}",
+                timeout=30,
+            )
+            if details_resp.ok:
+                details = details_resp.json()
+                st.subheader("Rule Results")
+                st.dataframe(pd.DataFrame(details["results"]), use_container_width=True)
+
+                st.subheader("Exceptions")
+                exceptions = details.get("exceptions", [])
+                if exceptions:
+                    st.dataframe(pd.DataFrame(exceptions), use_container_width=True)
+                else:
+                    st.info("No exceptions for this run.")
+            else:
+                st.error(details_resp.text)

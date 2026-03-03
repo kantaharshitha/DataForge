@@ -1,4 +1,4 @@
-﻿"""Typed API response models for DataForge."""
+﻿"""Typed API request/response models for DataForge."""
 
 from __future__ import annotations
 
@@ -92,3 +92,65 @@ class RelationshipDecisionResponse(BaseModel):
     decision: str
     reviewer_notes: str | None = None
     decided_at: datetime
+
+
+class ValidationRunResponse(BaseModel):
+    validation_run_id: str
+    started_at: datetime
+    ended_at: datetime
+    status: str
+    trust_score: int
+    dimension_scores: dict[str, float] = Field(default_factory=dict)
+    rule_count: int
+
+
+class ValidationRunSummaryResponse(BaseModel):
+    validation_run_id: str
+    started_at: datetime
+    ended_at: datetime
+    status: str
+    trust_score: int
+    dimension_scores: dict[str, float] = Field(default_factory=dict)
+
+
+class ValidationResultItemResponse(BaseModel):
+    result_id: str
+    dimension: str
+    rule_code: str
+    dataset_name: str
+    severity: str
+    base_weight: float
+    evaluated_records: int
+    failed_records: int
+    failure_rate: float
+    penalty_points: float
+    message: str
+    sample_rows: list[str] = Field(default_factory=list)
+
+
+class ValidationExceptionItemResponse(BaseModel):
+    exception_id: str
+    dataset_name: str
+    rule_code: str
+    sample_rows: list[str] = Field(default_factory=list)
+    created_at: datetime
+
+
+class ValidationRunDetailResponse(BaseModel):
+    validation_run_id: str
+    started_at: datetime
+    ended_at: datetime
+    status: str
+    trust_score: int
+    dimension_scores: dict[str, float] = Field(default_factory=dict)
+    results: list[ValidationResultItemResponse]
+    exceptions: list[ValidationExceptionItemResponse]
+
+
+class LatestTrustScoreResponse(BaseModel):
+    validation_run_id: str
+    started_at: datetime
+    ended_at: datetime
+    status: str
+    trust_score: int
+    dimension_scores: dict[str, float] = Field(default_factory=dict)
