@@ -154,3 +154,54 @@ class LatestTrustScoreResponse(BaseModel):
     status: str
     trust_score: int
     dimension_scores: dict[str, float] = Field(default_factory=dict)
+
+
+class KpiRegistryItemResponse(BaseModel):
+    kpi_id: str
+    kpi_code: str
+    kpi_name: str
+    definition: str
+    formula: str
+    required_fields: list[str] = Field(default_factory=list)
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class KpiSeedResponse(BaseModel):
+    inserted: int
+
+
+class KpiRunResponse(BaseModel):
+    kpi_run_id: str
+    validation_run_id: str | None = None
+    generated_at: datetime
+    status: str
+    kpi_values: dict[str, float] = Field(default_factory=dict)
+
+
+class KpiLatestResponse(BaseModel):
+    kpi_run_id: str
+    validation_run_id: str | None = None
+    generated_at: datetime
+    status: str
+    kpi_values: dict[str, float] = Field(default_factory=dict)
+
+
+class DashboardCardResponse(BaseModel):
+    kpi_code: str
+    value: float
+
+
+class DashboardTrustContextResponse(BaseModel):
+    validation_run_id: str
+    trust_score: int
+    dimension_scores: dict[str, float] = Field(default_factory=dict)
+    status: str
+
+
+class ExecutiveDashboardResponse(BaseModel):
+    kpi_run_id: str
+    generated_at: datetime
+    cards: list[DashboardCardResponse]
+    trust_context: DashboardTrustContextResponse | None = None

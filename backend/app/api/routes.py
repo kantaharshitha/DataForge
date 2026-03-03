@@ -9,8 +9,13 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from app.db import get_conn
 from app.models import (
     DatasetSummary,
+    ExecutiveDashboardResponse,
     HealthResponse,
     InferenceRunResponse,
+    KpiLatestResponse,
+    KpiRegistryItemResponse,
+    KpiRunResponse,
+    KpiSeedResponse,
     LatestTrustScoreResponse,
     ProfileRunResponse,
     RelationshipCandidateResponse,
@@ -26,6 +31,13 @@ from app.services.inference import (
     decide_relationship_candidate,
     list_relationship_candidates,
     run_relationship_inference,
+)
+from app.services.kpi import (
+    get_executive_dashboard,
+    get_latest_kpi_run,
+    list_kpi_registry,
+    run_kpis,
+    seed_kpi_registry,
 )
 from app.services.validation import (
     get_latest_trust_score,
@@ -181,5 +193,36 @@ def get_validation_run_results(validation_run_id: str) -> ValidationRunDetailRes
 def get_latest_trust() -> LatestTrustScoreResponse:
     try:
         return LatestTrustScoreResponse(**get_latest_trust_score())
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/kpi/seed", response_model=KpiSeedResponse)
+def seed_kpis() -> KpiSeedResponse:
+    return KpiSeedResponse(inserted=seed_kpi_registry())
+
+
+@router.get("/kpi/registry", response_model=list[KpiRegistryItemResponse])
+def get_kpi_registry() -> list[KpiRegistryItemResponse]:
+    return [KpiRegistryItemResponse(**row) for row in list_kpi_registry()]
+
+
+@router.post("/kpi/run", response_model=KpiRunResponse)
+def execute_kpi_run() -> KpiRunResponse:
+    return KpiRunResponse(**run_kpis())
+
+
+@router.get("/kpi/latest", response_model=KpiLatestResponse)
+def get_kpi_latest() -> KpiLatestResponse:
+    try:
+        return KpiLatestResponse(**get_latest_kpi_run())
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/dashboard/executive", response_model=ExecutiveDashboardResponse)
+def get_dashboard_executive() -> ExecutiveDashboardResponse:
+    try:
+        return ExecutiveDashboardResponse(**get_executive_dashboard())
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

@@ -13,6 +13,8 @@ page = st.sidebar.radio(
         "Profiling Summary",
         "Relationship Inference",
         "Validation & Trust",
+        "KPI Registry",
+        "Executive Dashboard",
     ],
 )
 
@@ -198,3 +200,64 @@ elif page == "Validation & Trust":
                     st.info("No exceptions for this run.")
             else:
                 st.error(details_resp.text)
+
+elif page == "KPI Registry":
+    st.header("KPI Registry")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Seed Default KPIs"):
+            seed_resp = requests.post(f"{API_BASE}/kpi/seed", timeout=30)
+            if seed_resp.ok:
+                st.success(f"Seeded {seed_resp.json()['inserted']} KPI(s)")
+            else:
+                st.error(seed_resp.text)
+
+    with col2:
+        if st.button("Run KPI Calculation"):
+            run_resp = requests.post(f"{API_BASE}/kpi/run", timeout=60)
+            if run_resp.ok:
+                st.success("KPI run completed")
+                st.json(run_resp.json())
+            else:
+                st.error(run_resp.text)
+
+    registry_resp = requests.get(f"{API_BASE}/kpi/registry", timeout=30)
+    if registry_resp.ok:
+        registry = registry_resp.json()
+        if registry:
+            st.dataframe(pd.DataFrame(registry), use_container_width=True)
+        else:
+            st.info("KPI registry is empty. Seed default KPIs.")
+    else:
+        st.error(registry_resp.text)
+
+elif page == "Executive Dashboard":
+    st.header("Executive Dashboard")
+
+    latest_kpi = requests.get(f"{API_BASE}/kpi/latest", timeout=30)
+    if not latest_kpi.ok:
+        st.info("No KPI runs available. Seed KPIs and run KPI calculation first.")
+    else:
+        payload = latest_kpi.json()
+        st.caption(f"KPI Run: {payload['kpi_run_id']} | Generated: {payload['generated_at']}")
+        cards = payload.get("kpi_values", {})
+        if cards:
+            cols = st.columns(3)
+            idx = 0
+            for key, value in cards.items():
+                cols[idx % 3].metric(key, value)
+                idx += 1
+
+        dashboard_resp = requests.get(f"{API_BASE}/dashboard/executive", timeout=30)
+        if dashboard_resp.ok:
+            dash = dashboard_resp.json()
+            st.subheader("Trust Context")
+            trust = dash.get("trust_context")
+            if trust:
+                st.metric("Data Trust Score", trust["trust_score"])
+                st.json(trust)
+            else:
+                st.info("No trust context yet. Run validation first.")
+        else:
+            st.error(dashboard_resp.text)
