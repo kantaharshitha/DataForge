@@ -118,6 +118,57 @@
     </div>
 
     <div class="panel">
+      <h3>Schema Drift Explorer</h3>
+      <div class="row">
+        <button id="btnDriftRuns">Load Drift Runs</button>
+        <label for="driftRunSelect">Run</label>
+        <select id="driftRunSelect" style="padding:6px;border:1px solid #d9e1ee;border-radius:6px;min-width:220px"></select>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <span id="driftRunSummary" style="color:#5b6472"></span>
+      </div>
+      <div style="margin-top:8px; overflow:auto;">
+        <table id="driftTable">
+          <thead>
+            <tr>
+              <th>Dataset</th>
+              <th>Type</th>
+              <th>Column</th>
+              <th>Severity</th>
+              <th>Old</th>
+              <th>New</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Lineage Explorer</h3>
+      <div class="row">
+        <button id="btnLineageRuns">Load Lineage Runs</button>
+        <label for="lineageRunSelect">Run</label>
+        <select id="lineageRunSelect" style="padding:6px;border:1px solid #d9e1ee;border-radius:6px;min-width:220px"></select>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <span id="lineageSummary" style="color:#5b6472"></span>
+      </div>
+      <div style="margin-top:8px; overflow:auto;">
+        <table id="lineageEdgeTable">
+          <thead>
+            <tr>
+              <th>Edge Type</th>
+              <th>From</th>
+              <th>To</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
       <h3>Output</h3>
       <pre id="output">Ready.</pre>
     </div>

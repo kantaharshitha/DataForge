@@ -22,16 +22,16 @@ def main() -> None:
         "inventory_snapshots.csv",
     ]
 
-    print("[1/6] Ingesting sample datasets...")
+    print("[1/8] Ingesting sample datasets...")
     for name in ingest_order:
         result = ingest_file(name, (samples / name).read_bytes())
         print(f"  - {name}: dataset_id={result['dataset_id'][:8]}, rows={result['row_count']}")
 
-    print("[2/6] Running relationship inference...")
+    print("[2/8] Running relationship inference...")
     inf = run_relationship_inference()
     print(f"  - inference_run_id={inf['inference_run_id'][:8]}, candidates={inf['candidate_count']}")
 
-    print("[3/6] Auto-accepting high-confidence candidates (>=0.60)...")
+    print("[3/8] Auto-accepting high-confidence candidates (>=0.60)...")
     accepted = 0
     for cand in list_relationship_candidates(inf["inference_run_id"]):
         if cand["confidence_score"] >= 0.60:
