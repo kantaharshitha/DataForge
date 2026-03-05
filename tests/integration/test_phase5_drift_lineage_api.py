@@ -90,3 +90,49 @@ def test_lineage_build_and_queries(client: TestClient) -> None:
     by_dataset = client.get("/lineage/dataset/orders")
     assert by_dataset.status_code == 200
     assert len(by_dataset.json()["nodes"]) > 0
+
+
+def test_export_endpoints_for_drift_validation_and_lineage(client: TestClient) -> None:
+    v1 = b"customer_id,customer_name,amount\nC001,Acme,10.0\n"
+    v2 = b"customer_id,amount,promo_code\nC001,ten,NEW10\n"
+    assert client.post("/upload", files={"file": ("customers.csv", v1, "text/csv")}).status_code == 200
+    assert client.post("/upload", files={"file": ("customers.csv", v2, "text/csv")}).status_code == 200
+    assert client.post("/drift/run", params={"dataset_name": "customers"}).status_code == 200
+
+    drift_export = client.get("/exports/drift/customers.csv")
+    assert drift_export.status_code == 200
+    assert "change_type" in drift_export.text
+
+    orders = b"order_id,customer_id,order_date,ship_date\nO1001,C001,2026-02-01,2026-02-02\n"
+    assert client.post("/upload", files={"file": ("orders.csv", orders, "text/csv")}).status_code == 200
+    validation = client.post("/validation/run")
+    assert validation.status_code == 200
+    validation_run_id = validation.json()["validation_run_id"]
+
+    validation_export = client.get(f"/exports/validation/{validation_run_id}.csv")
+    assert validation_export.status_code == 200
+    assert "rule_code" in validation_export.text
+
+    build = client.post("/lineage/build")
+    assert build.status_code == 200
+    lineage_run_id = build.json()["lineage_run_id"]
+    lineage_export = client.get(f"/exports/lineage/{lineage_run_id}.json")
+    assert lineage_export.status_code == 200
+    assert "nodes" in lineage_export.json()
+
+
+def test_ops_cleanup_endpoint(client: TestClient) -> None:
+    customers = b"customer_id,customer_name\nC001,Acme\n"
+    assert client.post("/upload", files={"file": ("customers.csv", customers, "text/csv")}).status_code == 200
+    assert client.post("/validation/run").status_code == 200
+    assert client.post("/kpi/seed").status_code == 200
+    assert client.post("/kpi/run").status_code == 200
+    assert client.post("/lineage/build").status_code == 200
+    assert client.post("/drift/run", params={"dataset_name": "customers"}).status_code == 200
+
+    cleanup = client.post("/ops/cleanup", params={"keep_last_runs": 0, "keep_raw_files": 0})
+    assert cleanup.status_code == 200
+    payload = cleanup.json()
+    assert payload["keep_last_runs"] == 0
+    assert payload["keep_raw_files"] == 0
+    assert "deleted" in payload

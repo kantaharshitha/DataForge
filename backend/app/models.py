@@ -278,3 +278,9 @@ class LineageGraphResponse(BaseModel):
     lineage_run_id: str
     nodes: list[LineageNodeResponse] = Field(default_factory=list)
     edges: list[LineageEdgeResponse] = Field(default_factory=list)
+
+
+class OpsCleanupResponse(BaseModel):
+    keep_last_runs: int
+    keep_raw_files: int
+    deleted: dict[str, int] = Field(default_factory=dict)

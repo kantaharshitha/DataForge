@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import csv
 import json
+from io import StringIO
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi.responses import PlainTextResponse
 
 from app.db import get_conn
 from app.models import (
@@ -23,6 +26,7 @@ from app.models import (
     LineageBuildResponse,
     LineageGraphResponse,
     LineageRunResponse,
+    OpsCleanupResponse,
     ProfileRunResponse,
     RelationshipCandidateResponse,
     RelationshipDecisionRequest,
@@ -32,6 +36,7 @@ from app.models import (
     ValidationRunResponse,
     ValidationRunSummaryResponse,
 )
+from app.services.cleanup import run_cleanup
 from app.services.drift import (
     get_latest_drift_run,
     list_drift_events,
@@ -304,3 +309,100 @@ def get_lineage_dataset_view(dataset_name: str, lineage_run_id: str | None = Non
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/exports/drift/{dataset_name}.csv", response_class=PlainTextResponse)
+def export_drift_events_csv(dataset_name: str) -> PlainTextResponse:
+    events = list_drift_events(dataset_name)
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(
+        [
+            "event_id",
+            "drift_run_id",
+            "dataset_name",
+            "change_type",
+            "column_name",
+            "old_value",
+            "new_value",
+            "severity",
+            "created_at",
+        ]
+    )
+    for event in events:
+        writer.writerow(
+            [
+                event.get("event_id", ""),
+                event.get("drift_run_id", ""),
+                event.get("dataset_name", ""),
+                event.get("change_type", ""),
+                event.get("column_name", ""),
+                event.get("old_value", ""),
+                event.get("new_value", ""),
+                event.get("severity", ""),
+                event.get("created_at", ""),
+            ]
+        )
+    return PlainTextResponse(
+        content=output.getvalue(),
+        headers={"Content-Disposition": f'attachment; filename="drift_{dataset_name}.csv"'},
+    )
+
+
+@router.get("/exports/validation/{validation_run_id}.csv", response_class=PlainTextResponse)
+def export_validation_results_csv(validation_run_id: str) -> PlainTextResponse:
+    try:
+        payload = get_validation_results(validation_run_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(
+        [
+            "result_id",
+            "dimension",
+            "rule_code",
+            "dataset_name",
+            "severity",
+            "evaluated_records",
+            "failed_records",
+            "failure_rate",
+            "penalty_points",
+            "message",
+        ]
+    )
+    for row in payload.get("results", []):
+        writer.writerow(
+            [
+                row.get("result_id", ""),
+                row.get("dimension", ""),
+                row.get("rule_code", ""),
+                row.get("dataset_name", ""),
+                row.get("severity", ""),
+                row.get("evaluated_records", ""),
+                row.get("failed_records", ""),
+                row.get("failure_rate", ""),
+                row.get("penalty_points", ""),
+                row.get("message", ""),
+            ]
+        )
+    return PlainTextResponse(
+        content=output.getvalue(),
+        headers={"Content-Disposition": f'attachment; filename="validation_{validation_run_id}.csv"'},
+    )
+
+
+@router.get("/exports/lineage/{lineage_run_id}.json")
+def export_lineage_json(lineage_run_id: str) -> dict:
+    try:
+        return get_lineage_graph(lineage_run_id=lineage_run_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/ops/cleanup", response_model=OpsCleanupResponse)
+def execute_cleanup(keep_last_runs: int = 20, keep_raw_files: int = 200) -> OpsCleanupResponse:
+    if keep_last_runs < 0 or keep_raw_files < 0:
+        raise HTTPException(status_code=400, detail="keep_last_runs and keep_raw_files must be >= 0")
+    return OpsCleanupResponse(**run_cleanup(keep_last_runs=keep_last_runs, keep_raw_files=keep_raw_files))

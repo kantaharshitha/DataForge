@@ -1,6 +1,7 @@
 ﻿const output = document.getElementById("output");
 const uploadMsg = document.getElementById("uploadMsg");
 const apiInput = document.getElementById("apiBase");
+const deployWarning = document.getElementById("deployWarning");
 
 if (
   apiInput.value === "/api" &&
@@ -9,6 +10,16 @@ if (
 ) {
   apiInput.value = "http://127.0.0.1:8000";
 }
+
+if (window.location.hostname.endsWith(".vercel.app")) {
+  deployWarning.style.display = "block";
+}
+
+const PAGE_SIZE = 15;
+let driftAll = [];
+let driftPage = 1;
+let lineageGraphAll = { nodes: [], edges: [] };
+let lineagePage = 1;
 
 function apiBase() {
   return document.getElementById("apiBase").value.replace(/\/$/, "");
@@ -44,10 +55,32 @@ function fillSelect(selectEl, options, getLabel, getValue) {
   }
 }
 
-function renderDriftEvents(events) {
+function paginate(items, page) {
+  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  const start = (safePage - 1) * PAGE_SIZE;
+  return {
+    pageItems: items.slice(start, start + PAGE_SIZE),
+    page: safePage,
+    totalPages,
+    totalItems: items.length,
+  };
+}
+
+function filteredDriftEvents() {
+  const sev = document.getElementById("driftSeverity").value;
+  if (sev === "ALL") return driftAll;
+  return driftAll.filter((e) => e.severity === sev);
+}
+
+function renderDriftEvents() {
+  const events = filteredDriftEvents();
+  const paging = paginate(events, driftPage);
+  driftPage = paging.page;
+
   const tbody = document.querySelector("#driftTable tbody");
   tbody.innerHTML = "";
-  for (const event of events) {
+  for (const event of paging.pageItems) {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${event.dataset_name ?? ""}</td>
@@ -59,13 +92,40 @@ function renderDriftEvents(events) {
     `;
     tbody.appendChild(tr);
   }
+
+  document.getElementById("driftPageInfo").textContent =
+    `Page ${paging.page}/${paging.totalPages} (${paging.totalItems} rows)`;
 }
 
-function renderLineageEdges(graph) {
+function edgeTypeFiltered(graph) {
+  const edgeType = document.getElementById("lineageEdgeType").value;
+  if (edgeType === "ALL") return graph.edges || [];
+  return (graph.edges || []).filter((e) => e.edge_type === edgeType);
+}
+
+function refreshLineageEdgeTypeOptions(graph) {
+  const select = document.getElementById("lineageEdgeType");
+  const current = select.value;
+  const types = Array.from(new Set((graph.edges || []).map((e) => e.edge_type))).sort();
+  select.innerHTML = '<option value="ALL">ALL</option>';
+  for (const t of types) {
+    const opt = document.createElement("option");
+    opt.value = t;
+    opt.textContent = t;
+    select.appendChild(opt);
+  }
+  if (types.includes(current)) select.value = current;
+}
+
+function renderLineageEdges(graph = lineageGraphAll) {
   const nodes = Object.fromEntries((graph.nodes || []).map((n) => [n.node_id, n]));
+  const filteredEdges = edgeTypeFiltered(graph);
+  const paging = paginate(filteredEdges, lineagePage);
+  lineagePage = paging.page;
+
   const tbody = document.querySelector("#lineageEdgeTable tbody");
   tbody.innerHTML = "";
-  for (const edge of graph.edges || []) {
+  for (const edge of paging.pageItems) {
     const from = nodes[edge.from_node_id]?.display_name || edge.from_node_id;
     const to = nodes[edge.to_node_id]?.display_name || edge.to_node_id;
     const tr = document.createElement("tr");
@@ -76,6 +136,32 @@ function renderLineageEdges(graph) {
     `;
     tbody.appendChild(tr);
   }
+
+  document.getElementById("lineagePageInfo").textContent =
+    `Page ${paging.page}/${paging.totalPages} (${paging.totalItems} edges)`;
+}
+
+function downloadText(filename, text) {
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+async function downloadFromApi(path, filename) {
+  const url = `${apiBase()}${path}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(`${res.status} ${res.statusText}: ${txt}`);
+  }
+  const text = await res.text();
+  downloadText(filename, text);
 }
 
 document.getElementById("btnHealth").onclick = async () => {
@@ -135,11 +221,13 @@ document.getElementById("btnDriftRuns").onclick = async () => {
     if (runs.length) {
       document.getElementById("driftRunSummary").textContent =
         `Latest: ${runs[0].dataset_name}, events=${runs[0].event_count}, high=${runs[0].high_count}, medium=${runs[0].medium_count}, low=${runs[0].low_count}`;
-      const events = await callApi(`/drift/events/${encodeURIComponent(runs[0].dataset_name)}`);
-      renderDriftEvents(events.slice(0, 50));
+      driftAll = await callApi(`/drift/events/${encodeURIComponent(runs[0].dataset_name)}`);
+      driftPage = 1;
+      renderDriftEvents();
     } else {
       document.getElementById("driftRunSummary").textContent = "No drift runs found.";
-      renderDriftEvents([]);
+      driftAll = [];
+      renderDriftEvents();
     }
     show(runs);
   } catch (e) {
@@ -151,8 +239,33 @@ document.getElementById("driftRunSelect").onchange = async (ev) => {
   const dataset = ev.target.value;
   if (!dataset) return;
   try {
-    const events = await callApi(`/drift/events/${encodeURIComponent(dataset)}`);
-    renderDriftEvents(events.slice(0, 50));
+    driftAll = await callApi(`/drift/events/${encodeURIComponent(dataset)}`);
+    driftPage = 1;
+    renderDriftEvents();
+  } catch (e) {
+    show({ error: e.message });
+  }
+};
+
+document.getElementById("driftSeverity").onchange = () => {
+  driftPage = 1;
+  renderDriftEvents();
+};
+
+document.getElementById("btnDriftPrev").onclick = () => {
+  driftPage = Math.max(1, driftPage - 1);
+  renderDriftEvents();
+};
+
+document.getElementById("btnDriftNext").onclick = () => {
+  driftPage += 1;
+  renderDriftEvents();
+};
+
+document.getElementById("btnDriftExport").onclick = async () => {
+  const dataset = document.getElementById("driftDataset").value.trim() || "orders";
+  try {
+    await downloadFromApi(`/exports/drift/${encodeURIComponent(dataset)}.csv`, `drift_${dataset}.csv`);
   } catch (e) {
     show({ error: e.message });
   }
@@ -169,13 +282,16 @@ document.getElementById("btnLineageRuns").onclick = async () => {
       (r) => r.lineage_run_id
     );
     if (runs.length) {
-      const graph = await callApi(`/lineage/graph?lineage_run_id=${encodeURIComponent(runs[0].lineage_run_id)}`);
+      lineageGraphAll = await callApi(`/lineage/graph?lineage_run_id=${encodeURIComponent(runs[0].lineage_run_id)}`);
+      refreshLineageEdgeTypeOptions(lineageGraphAll);
+      lineagePage = 1;
       document.getElementById("lineageSummary").textContent =
-        `Run ${runs[0].lineage_run_id.slice(0, 8)}: nodes=${graph.nodes.length}, edges=${graph.edges.length}`;
-      renderLineageEdges(graph);
+        `Run ${runs[0].lineage_run_id.slice(0, 8)}: nodes=${lineageGraphAll.nodes.length}, edges=${lineageGraphAll.edges.length}`;
+      renderLineageEdges(lineageGraphAll);
     } else {
       document.getElementById("lineageSummary").textContent = "No lineage runs found.";
-      renderLineageEdges({ nodes: [], edges: [] });
+      lineageGraphAll = { nodes: [], edges: [] };
+      renderLineageEdges(lineageGraphAll);
     }
     show(runs);
   } catch (e) {
@@ -187,10 +303,54 @@ document.getElementById("lineageRunSelect").onchange = async (ev) => {
   const runId = ev.target.value;
   if (!runId) return;
   try {
-    const graph = await callApi(`/lineage/graph?lineage_run_id=${encodeURIComponent(runId)}`);
+    lineageGraphAll = await callApi(`/lineage/graph?lineage_run_id=${encodeURIComponent(runId)}`);
+    refreshLineageEdgeTypeOptions(lineageGraphAll);
+    lineagePage = 1;
     document.getElementById("lineageSummary").textContent =
-      `Run ${runId.slice(0, 8)}: nodes=${graph.nodes.length}, edges=${graph.edges.length}`;
-    renderLineageEdges(graph);
+      `Run ${runId.slice(0, 8)}: nodes=${lineageGraphAll.nodes.length}, edges=${lineageGraphAll.edges.length}`;
+    renderLineageEdges(lineageGraphAll);
+  } catch (e) {
+    show({ error: e.message });
+  }
+};
+
+document.getElementById("lineageEdgeType").onchange = () => {
+  lineagePage = 1;
+  renderLineageEdges(lineageGraphAll);
+};
+
+document.getElementById("btnLineagePrev").onclick = () => {
+  lineagePage = Math.max(1, lineagePage - 1);
+  renderLineageEdges(lineageGraphAll);
+};
+
+document.getElementById("btnLineageNext").onclick = () => {
+  lineagePage += 1;
+  renderLineageEdges(lineageGraphAll);
+};
+
+document.getElementById("btnLineageExport").onclick = async () => {
+  const runId = document.getElementById("lineageRunSelect").value;
+  if (!runId) {
+    show({ error: "Select a lineage run first." });
+    return;
+  }
+  try {
+    const data = await callApi(`/exports/lineage/${encodeURIComponent(runId)}.json`);
+    downloadText(`lineage_${runId}.json`, JSON.stringify(data, null, 2));
+  } catch (e) {
+    show({ error: e.message });
+  }
+};
+
+document.getElementById("btnValidationExport").onclick = async () => {
+  const runId = document.getElementById("validationRunId").value.trim();
+  if (!runId) {
+    show({ error: "Validation run ID is required." });
+    return;
+  }
+  try {
+    await downloadFromApi(`/exports/validation/${encodeURIComponent(runId)}.csv`, `validation_${runId}.csv`);
   } catch (e) {
     show({ error: e.message });
   }
@@ -203,9 +363,10 @@ document.getElementById("btnDriftEvents").onclick = async () => {
     return;
   }
   try {
-    const events = await callApi(`/drift/events/${encodeURIComponent(dataset)}`);
-    renderDriftEvents(events.slice(0, 50));
-    show(events);
+    driftAll = await callApi(`/drift/events/${encodeURIComponent(dataset)}`);
+    driftPage = 1;
+    renderDriftEvents();
+    show(driftAll);
   } catch (e) { show({ error: e.message }); }
 };
 
@@ -215,7 +376,13 @@ document.getElementById("btnLineageByKpi").onclick = async () => {
     show({ error: "KPI code is required." });
     return;
   }
-  try { show(await callApi(`/lineage/kpi/${encodeURIComponent(kpiCode)}`)); } catch (e) { show({ error: e.message }); }
+  try {
+    lineageGraphAll = await callApi(`/lineage/kpi/${encodeURIComponent(kpiCode)}`);
+    refreshLineageEdgeTypeOptions(lineageGraphAll);
+    lineagePage = 1;
+    renderLineageEdges(lineageGraphAll);
+    show(lineageGraphAll);
+  } catch (e) { show({ error: e.message }); }
 };
 
 document.getElementById("btnLineageByDataset").onclick = async () => {
@@ -225,11 +392,13 @@ document.getElementById("btnLineageByDataset").onclick = async () => {
     return;
   }
   try {
-    const graph = await callApi(`/lineage/dataset/${encodeURIComponent(dataset)}`);
-    renderLineageEdges(graph);
+    lineageGraphAll = await callApi(`/lineage/dataset/${encodeURIComponent(dataset)}`);
+    refreshLineageEdgeTypeOptions(lineageGraphAll);
+    lineagePage = 1;
+    renderLineageEdges(lineageGraphAll);
     document.getElementById("lineageSummary").textContent =
-      `Dataset ${dataset}: nodes=${graph.nodes.length}, edges=${graph.edges.length}`;
-    show(graph);
+      `Dataset ${dataset}: nodes=${lineageGraphAll.nodes.length}, edges=${lineageGraphAll.edges.length}`;
+    show(lineageGraphAll);
   } catch (e) { show({ error: e.message }); }
 };
 

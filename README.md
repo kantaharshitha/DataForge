@@ -62,6 +62,8 @@ In production, frontend calls API via `/api/*` automatically.
 - Lineage: `/lineage/build`, `/lineage/runs`, `/lineage/graph`, `/lineage/kpi/{kpi_code}`, `/lineage/dataset/{dataset_name}`
 - Validation/Trust: `/validation/run`, `/validation/runs`, `/validation/results/{validation_run_id}`, `/trust/latest`
 - KPI/Dashboard: `/kpi/seed`, `/kpi/registry`, `/kpi/run`, `/kpi/latest`, `/dashboard/executive`
+- Exports: `/exports/drift/{dataset_name}.csv`, `/exports/validation/{validation_run_id}.csv`, `/exports/lineage/{lineage_run_id}.json`
+- Ops: `/ops/cleanup?keep_last_runs=20&keep_raw_files=200`
 
 ## Validation and Smoke Tests
 Run all tests:
@@ -75,3 +77,10 @@ $env:PYTHONPATH="./backend"
 .\.venv\Scripts\python.exe .\scripts\smoke_pipeline.py
 ```
 This now executes: ingest -> inference -> validation -> drift scan -> KPI -> lineage build -> dashboard.
+
+## Frontend Explorer Features
+- Drift explorer with severity filter and pagination.
+- Lineage explorer with edge-type filter and pagination.
+- Export buttons for drift CSV and lineage JSON.
+- Validation results CSV export by run ID.
+- Vercel deployment warning banner when running on `*.vercel.app`.

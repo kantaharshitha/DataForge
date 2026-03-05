@@ -67,6 +67,13 @@
 <body>
   <div class="wrap">
     <h1>DataForge Web Console</h1>
+    <div id="deployWarning" class="panel" style="display:none; border-color:#f3c77a; background:#fff9eb;">
+      <strong>Deployment Warning</strong>
+      <p style="margin:6px 0 0; color:#7a5a1c;">
+        Running on Vercel with default local paths uses ephemeral <code>/tmp</code> storage.
+        Data may reset on cold starts/redeploys.
+      </p>
+    </div>
     <div class="panel">
       <div class="row">
         <label for="apiBase">API Base</label>
@@ -115,6 +122,11 @@
         <input id="datasetName" type="text" value="orders" style="width:180px;padding:6px;border:1px solid #d9e1ee;border-radius:6px" />
         <button id="btnLineageByDataset">Lineage by Dataset</button>
       </div>
+      <div class="row" style="margin-top:8px">
+        <label for="validationRunId">Validation Run ID</label>
+        <input id="validationRunId" type="text" value="" placeholder="paste validation run id" style="width:280px;padding:6px;border:1px solid #d9e1ee;border-radius:6px" />
+        <button id="btnValidationExport">Export Validation CSV</button>
+      </div>
     </div>
 
     <div class="panel">
@@ -123,9 +135,22 @@
         <button id="btnDriftRuns">Load Drift Runs</button>
         <label for="driftRunSelect">Run</label>
         <select id="driftRunSelect" style="padding:6px;border:1px solid #d9e1ee;border-radius:6px;min-width:220px"></select>
+        <label for="driftSeverity">Severity</label>
+        <select id="driftSeverity" style="padding:6px;border:1px solid #d9e1ee;border-radius:6px;min-width:120px">
+          <option value="ALL">ALL</option>
+          <option value="HIGH">HIGH</option>
+          <option value="MEDIUM">MEDIUM</option>
+          <option value="LOW">LOW</option>
+        </select>
+        <button id="btnDriftExport">Export Drift CSV</button>
       </div>
       <div class="row" style="margin-top:8px">
         <span id="driftRunSummary" style="color:#5b6472"></span>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button id="btnDriftPrev">Prev</button>
+        <span id="driftPageInfo" style="color:#5b6472"></span>
+        <button id="btnDriftNext">Next</button>
       </div>
       <div style="margin-top:8px; overflow:auto;">
         <table id="driftTable">
@@ -150,9 +175,19 @@
         <button id="btnLineageRuns">Load Lineage Runs</button>
         <label for="lineageRunSelect">Run</label>
         <select id="lineageRunSelect" style="padding:6px;border:1px solid #d9e1ee;border-radius:6px;min-width:220px"></select>
+        <label for="lineageEdgeType">Edge Type</label>
+        <select id="lineageEdgeType" style="padding:6px;border:1px solid #d9e1ee;border-radius:6px;min-width:180px">
+          <option value="ALL">ALL</option>
+        </select>
+        <button id="btnLineageExport">Export Lineage JSON</button>
       </div>
       <div class="row" style="margin-top:8px">
         <span id="lineageSummary" style="color:#5b6472"></span>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button id="btnLineagePrev">Prev</button>
+        <span id="lineagePageInfo" style="color:#5b6472"></span>
+        <button id="btnLineageNext">Next</button>
       </div>
       <div style="margin-top:8px; overflow:auto;">
         <table id="lineageEdgeTable">
