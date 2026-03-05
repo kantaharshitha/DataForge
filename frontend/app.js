@@ -28,7 +28,12 @@ function apiBase() {
 
 async function callApi(path, options = {}) {
   const url = `${apiBase()}${path}`;
-  const res = await fetch(url, options);
+  const headers = { ...(options.headers || {}) };
+  const opsApiKey = document.getElementById("opsApiKey")?.value?.trim();
+  if (path.startsWith("/ops/") && opsApiKey) {
+    headers["x-api-key"] = opsApiKey;
+  }
+  const res = await fetch(url, { ...options, headers });
   const text = await res.text();
   let payload;
   try {

@@ -5,7 +5,9 @@ from __future__ import annotations
 import time
 import uuid
 from datetime import datetime, timezone
+import json
 
+from app.db import get_conn
 from app.services.drift import run_schema_drift_scan
 from app.services.inference import (
     decide_relationship_candidate,
@@ -116,7 +118,7 @@ def run_pipeline_with_observability(auto_accept_inference: bool = True) -> dict:
     total_duration_ms = round((time.perf_counter() - total_start) * 1000, 2)
     ended_at = _utc_now_iso()
 
-    return {
+    payload = {
         "correlation_id": correlation_id,
         "started_at": started_at,
         "ended_at": ended_at,
@@ -124,8 +126,48 @@ def run_pipeline_with_observability(auto_accept_inference: bool = True) -> dict:
         "stage_metrics": stage_metrics,
         "summary": {
             "accepted_inference": accepted,
+            "validation_run_id": validation["validation_run_id"],
             "trust_score": validation["trust_score"],
+            "drift_run_ids": [run["drift_run_id"] for run in drift.get("runs", [])],
             "kpi_run_id": kpi["kpi_run_id"],
             "lineage_run_id": lineage["lineage_run_id"],
         },
     }
+
+    with get_conn() as conn:
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO pipeline_run_log (
+                correlation_id, started_at, ended_at, total_duration_ms, summary_json
+            )
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            [
+                correlation_id,
+                started_at,
+                ended_at,
+                total_duration_ms,
+                json.dumps(payload["summary"]),
+            ],
+        )
+
+        for idx, metric in enumerate(stage_metrics):
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO pipeline_stage_metrics (
+                    metric_id, correlation_id, stage_order, stage_name, duration_ms, details_json, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    str(uuid.uuid4()),
+                    correlation_id,
+                    idx,
+                    metric["stage"],
+                    metric["duration_ms"],
+                    json.dumps(metric.get("details", {})),
+                    ended_at,
+                ],
+            )
+
+    return payload

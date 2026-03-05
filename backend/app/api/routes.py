@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import csv
 import json
+import os
+import zipfile
+from io import BytesIO
 from io import StringIO
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
-from fastapi.responses import PlainTextResponse
+from fastapi import APIRouter, Depends, File, Header, HTTPException, UploadFile
+from fastapi.responses import PlainTextResponse, Response
 
 from app.db import get_conn, get_runtime_info
 from app.models import (
@@ -74,6 +77,14 @@ from app.services.validation import (
 )
 
 router = APIRouter()
+
+
+def require_ops_api_key(x_api_key: str | None = Header(default=None)) -> None:
+    expected = os.getenv("DATAFORGE_OPS_API_KEY")
+    if not expected:
+        return
+    if x_api_key != expected:
+        raise HTTPException(status_code=401, detail="Unauthorized: invalid x-api-key")
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -404,18 +415,134 @@ def export_lineage_json(lineage_run_id: str) -> dict:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
+@router.get("/exports/run/{correlation_id}.zip")
+def export_pipeline_artifact_bundle(correlation_id: str) -> Response:
+    with get_conn() as conn:
+        row = conn.execute(
+            """
+            SELECT correlation_id, started_at, ended_at, total_duration_ms, summary_json
+            FROM pipeline_run_log
+            WHERE correlation_id = ?
+            """,
+            [correlation_id],
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Pipeline run not found for correlation_id")
+
+        stage_rows = conn.execute(
+            """
+            SELECT stage_order, stage_name, duration_ms, details_json, created_at
+            FROM pipeline_stage_metrics
+            WHERE correlation_id = ?
+            ORDER BY stage_order ASC
+            """,
+            [correlation_id],
+        ).fetchall()
+
+    summary = json.loads(row[4]) if row[4] else {}
+    validation_run_id = summary.get("validation_run_id")
+    lineage_run_id = summary.get("lineage_run_id")
+    drift_run_ids = summary.get("drift_run_ids", [])
+
+    drift_events: list[dict] = []
+    if drift_run_ids:
+        with get_conn() as conn:
+            placeholders = ",".join(["?"] * len(drift_run_ids))
+            events = conn.execute(
+                f"""
+                SELECT event_id, drift_run_id, dataset_name, change_type, column_name, old_value, new_value, severity, created_at
+                FROM schema_drift_events
+                WHERE drift_run_id IN ({placeholders})
+                ORDER BY created_at DESC
+                """,
+                drift_run_ids,
+            ).fetchall()
+            drift_events = [
+                {
+                    "event_id": e[0],
+                    "drift_run_id": e[1],
+                    "dataset_name": e[2],
+                    "change_type": e[3],
+                    "column_name": e[4],
+                    "old_value": e[5],
+                    "new_value": e[6],
+                    "severity": e[7],
+                    "created_at": str(e[8]),
+                }
+                for e in events
+            ]
+
+    validation_results = None
+    if validation_run_id:
+        try:
+            validation_results = get_validation_results(validation_run_id)
+        except ValueError:
+            validation_results = None
+
+    lineage_graph = None
+    if lineage_run_id:
+        try:
+            lineage_graph = get_lineage_graph(lineage_run_id=lineage_run_id)
+        except ValueError:
+            lineage_graph = None
+
+    manifest = {
+        "correlation_id": row[0],
+        "started_at": str(row[1]),
+        "ended_at": str(row[2]),
+        "total_duration_ms": row[3],
+        "summary": summary,
+        "stage_metrics_count": len(stage_rows),
+    }
+
+    stage_metrics = [
+        {
+            "stage_order": r[0],
+            "stage_name": r[1],
+            "duration_ms": r[2],
+            "details": json.loads(r[3]) if r[3] else {},
+            "created_at": str(r[4]),
+        }
+        for r in stage_rows
+    ]
+
+    zip_buffer = BytesIO()
+    with zipfile.ZipFile(zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("manifest.json", json.dumps(manifest, indent=2))
+        zf.writestr("pipeline_stage_metrics.json", json.dumps(stage_metrics, indent=2))
+        zf.writestr("drift_events.json", json.dumps(drift_events, indent=2))
+        if validation_results is not None:
+            zf.writestr("validation_results.json", json.dumps(validation_results, indent=2, default=str))
+        if lineage_graph is not None:
+            zf.writestr("lineage_graph.json", json.dumps(lineage_graph, indent=2, default=str))
+
+    bundle_name = f"dataforge_bundle_{correlation_id}.zip"
+    return Response(
+        content=zip_buffer.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{bundle_name}"'},
+    )
+
+
 @router.post("/ops/cleanup", response_model=OpsCleanupResponse)
-def execute_cleanup(keep_last_runs: int = 20, keep_raw_files: int = 200) -> OpsCleanupResponse:
+def execute_cleanup(
+    keep_last_runs: int = 20,
+    keep_raw_files: int = 200,
+    _: None = Depends(require_ops_api_key),
+) -> OpsCleanupResponse:
     if keep_last_runs < 0 or keep_raw_files < 0:
         raise HTTPException(status_code=400, detail="keep_last_runs and keep_raw_files must be >= 0")
     return OpsCleanupResponse(**run_cleanup(keep_last_runs=keep_last_runs, keep_raw_files=keep_raw_files))
 
 
 @router.post("/ops/pipeline/run", response_model=PipelineRunResponse)
-def execute_pipeline_run(auto_accept_inference: bool = True) -> PipelineRunResponse:
+def execute_pipeline_run(
+    auto_accept_inference: bool = True,
+    _: None = Depends(require_ops_api_key),
+) -> PipelineRunResponse:
     return PipelineRunResponse(**run_pipeline_with_observability(auto_accept_inference=auto_accept_inference))
 
 
 @router.get("/ops/runtime", response_model=RuntimeInfoResponse)
-def get_runtime_diagnostics() -> RuntimeInfoResponse:
+def get_runtime_diagnostics(_: None = Depends(require_ops_api_key)) -> RuntimeInfoResponse:
     return RuntimeInfoResponse(**get_runtime_info())

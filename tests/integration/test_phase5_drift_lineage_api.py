@@ -159,6 +159,29 @@ def test_ops_pipeline_run_returns_correlation_and_stage_timings(client: TestClie
     assert len(payload["stage_metrics"]) >= 6
 
 
+def test_export_pipeline_bundle_by_correlation_id(client: TestClient) -> None:
+    customers = b"customer_id,customer_name\nC001,Acme\nC002,Northwind\n"
+    products = b"product_id,sku,unit_cost\nP001,SKU-1,10\nP002,SKU-2,15\n"
+    orders = b"order_id,customer_id,order_date,ship_date\nO1001,C001,2026-02-01,2026-02-02\nO1002,C002,2026-02-03,2026-02-04\n"
+    order_items = b"order_item_id,order_id,product_id,quantity,unit_price,discount_amount\nI1,O1001,P001,2,20,1\nI2,O1002,P002,1,30,0\n"
+    inventory = b"snapshot_date,product_id,warehouse_id,stockout_flag\n2026-02-01,P001,W1,false\n2026-02-01,P002,W1,true\n"
+
+    assert client.post("/upload", files={"file": ("customers.csv", customers, "text/csv")}).status_code == 200
+    assert client.post("/upload", files={"file": ("products.csv", products, "text/csv")}).status_code == 200
+    assert client.post("/upload", files={"file": ("orders.csv", orders, "text/csv")}).status_code == 200
+    assert client.post("/upload", files={"file": ("order_items.csv", order_items, "text/csv")}).status_code == 200
+    assert client.post("/upload", files={"file": ("inventory_snapshots.csv", inventory, "text/csv")}).status_code == 200
+
+    run = client.post("/ops/pipeline/run", params={"auto_accept_inference": True})
+    assert run.status_code == 200
+    corr_id = run.json()["correlation_id"]
+
+    bundle = client.get(f"/exports/run/{corr_id}.zip")
+    assert bundle.status_code == 200
+    assert bundle.headers["content-type"].startswith("application/zip")
+    assert len(bundle.content) > 100
+
+
 def test_ops_runtime_returns_runtime_and_db_info(client: TestClient) -> None:
     response = client.get("/ops/runtime")
     assert response.status_code == 200
@@ -167,3 +190,15 @@ def test_ops_runtime_returns_runtime_and_db_info(client: TestClient) -> None:
     assert payload["is_vercel"] in {True, False}
     assert payload["db_path"]
     assert payload["db_exists"] is True
+
+
+def test_ops_endpoints_require_api_key_when_configured(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("DATAFORGE_OPS_API_KEY", "secret123")
+
+    unauthorized = client.get("/ops/runtime")
+    assert unauthorized.status_code == 401
+
+    authorized = client.get("/ops/runtime", headers={"x-api-key": "secret123"})
+    assert authorized.status_code == 200

@@ -21,6 +21,7 @@ Why this change:
   - `local` (default outside Vercel)
   - `vercel-ephemeral` (default on Vercel)
   - `persistent` (force project `db/` path if writable)
+- Optional ops API guard: set `DATAFORGE_OPS_API_KEY` and pass it via `x-api-key` for `/ops/*`.
 
 ## Local Run (Recommended)
 1. Setup:
@@ -67,6 +68,7 @@ In production, frontend calls API via `/api/*` automatically.
 - Validation/Trust: `/validation/run`, `/validation/runs`, `/validation/results/{validation_run_id}`, `/trust/latest`
 - KPI/Dashboard: `/kpi/seed`, `/kpi/registry`, `/kpi/run`, `/kpi/latest`, `/dashboard/executive`
 - Exports: `/exports/drift/{dataset_name}.csv`, `/exports/validation/{validation_run_id}.csv`, `/exports/lineage/{lineage_run_id}.json`
+- Export bundle: `/exports/run/{correlation_id}.zip`
 - Ops: `/ops/cleanup?keep_last_runs=20&keep_raw_files=200`
 - Ops pipeline observability: `/ops/pipeline/run?auto_accept_inference=true`
 - Ops runtime diagnostics: `/ops/runtime`
@@ -83,6 +85,13 @@ $env:PYTHONPATH="./backend"
 .\.venv\Scripts\python.exe .\scripts\smoke_pipeline.py
 ```
 This now executes: ingest -> inference -> validation -> drift scan -> KPI -> lineage build -> dashboard.
+
+Run retention cleanup manually:
+```powershell
+$env:PYTHONPATH="./backend"
+.\.venv\Scripts\python.exe .\scripts\nightly_cleanup.py --keep-last-runs 20 --keep-raw-files 200
+```
+Use Windows Task Scheduler to run this command daily.
 
 ## Frontend Explorer Features
 - Drift explorer with severity filter and pagination.
