@@ -27,6 +27,7 @@ from app.models import (
     LineageGraphResponse,
     LineageRunResponse,
     OpsCleanupResponse,
+    PipelineRunResponse,
     ProfileRunResponse,
     RelationshipCandidateResponse,
     RelationshipDecisionRequest,
@@ -37,6 +38,7 @@ from app.models import (
     ValidationRunSummaryResponse,
 )
 from app.services.cleanup import run_cleanup
+from app.services.pipeline import run_pipeline_with_observability
 from app.services.drift import (
     get_latest_drift_run,
     list_drift_events,
@@ -406,3 +408,8 @@ def execute_cleanup(keep_last_runs: int = 20, keep_raw_files: int = 200) -> OpsC
     if keep_last_runs < 0 or keep_raw_files < 0:
         raise HTTPException(status_code=400, detail="keep_last_runs and keep_raw_files must be >= 0")
     return OpsCleanupResponse(**run_cleanup(keep_last_runs=keep_last_runs, keep_raw_files=keep_raw_files))
+
+
+@router.post("/ops/pipeline/run", response_model=PipelineRunResponse)
+def execute_pipeline_run(auto_accept_inference: bool = True) -> PipelineRunResponse:
+    return PipelineRunResponse(**run_pipeline_with_observability(auto_accept_inference=auto_accept_inference))

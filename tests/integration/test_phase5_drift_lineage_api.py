@@ -136,3 +136,24 @@ def test_ops_cleanup_endpoint(client: TestClient) -> None:
     assert payload["keep_last_runs"] == 0
     assert payload["keep_raw_files"] == 0
     assert "deleted" in payload
+
+
+def test_ops_pipeline_run_returns_correlation_and_stage_timings(client: TestClient) -> None:
+    customers = b"customer_id,customer_name\nC001,Acme\nC002,Northwind\n"
+    products = b"product_id,sku,unit_cost\nP001,SKU-1,10\nP002,SKU-2,15\n"
+    orders = b"order_id,customer_id,order_date,ship_date\nO1001,C001,2026-02-01,2026-02-02\nO1002,C002,2026-02-03,2026-02-04\n"
+    order_items = b"order_item_id,order_id,product_id,quantity,unit_price,discount_amount\nI1,O1001,P001,2,20,1\nI2,O1002,P002,1,30,0\n"
+    inventory = b"snapshot_date,product_id,warehouse_id,stockout_flag\n2026-02-01,P001,W1,false\n2026-02-01,P002,W1,true\n"
+
+    assert client.post("/upload", files={"file": ("customers.csv", customers, "text/csv")}).status_code == 200
+    assert client.post("/upload", files={"file": ("products.csv", products, "text/csv")}).status_code == 200
+    assert client.post("/upload", files={"file": ("orders.csv", orders, "text/csv")}).status_code == 200
+    assert client.post("/upload", files={"file": ("order_items.csv", order_items, "text/csv")}).status_code == 200
+    assert client.post("/upload", files={"file": ("inventory_snapshots.csv", inventory, "text/csv")}).status_code == 200
+
+    response = client.post("/ops/pipeline/run", params={"auto_accept_inference": True})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["correlation_id"]
+    assert payload["total_duration_ms"] >= 0
+    assert len(payload["stage_metrics"]) >= 6

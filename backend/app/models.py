@@ -284,3 +284,18 @@ class OpsCleanupResponse(BaseModel):
     keep_last_runs: int
     keep_raw_files: int
     deleted: dict[str, int] = Field(default_factory=dict)
+
+
+class PipelineStageMetric(BaseModel):
+    stage: str
+    duration_ms: float
+    details: dict = Field(default_factory=dict)
+
+
+class PipelineRunResponse(BaseModel):
+    correlation_id: str
+    started_at: datetime
+    ended_at: datetime
+    total_duration_ms: float
+    stage_metrics: list[PipelineStageMetric] = Field(default_factory=list)
+    summary: dict = Field(default_factory=dict)

@@ -64,6 +64,7 @@ In production, frontend calls API via `/api/*` automatically.
 - KPI/Dashboard: `/kpi/seed`, `/kpi/registry`, `/kpi/run`, `/kpi/latest`, `/dashboard/executive`
 - Exports: `/exports/drift/{dataset_name}.csv`, `/exports/validation/{validation_run_id}.csv`, `/exports/lineage/{lineage_run_id}.json`
 - Ops: `/ops/cleanup?keep_last_runs=20&keep_raw_files=200`
+- Ops pipeline observability: `/ops/pipeline/run?auto_accept_inference=true`
 
 ## Validation and Smoke Tests
 Run all tests:
@@ -84,3 +85,4 @@ This now executes: ingest -> inference -> validation -> drift scan -> KPI -> lin
 - Export buttons for drift CSV and lineage JSON.
 - Validation results CSV export by run ID.
 - Vercel deployment warning banner when running on `*.vercel.app`.
+- Pipeline observability response with correlation ID and stage-level durations.
