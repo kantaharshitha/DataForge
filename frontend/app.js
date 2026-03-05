@@ -167,6 +167,8 @@ function renderPipelineObservability(payload = pipelineLastRun) {
 
   document.getElementById("pipelineSummary").textContent =
     `Correlation ${payload.correlation_id}, total ${payload.total_duration_ms} ms, stages=${payload.stage_metrics.length}`;
+  const corrInput = document.getElementById("bundleCorrelationId");
+  if (corrInput) corrInput.value = payload.correlation_id || "";
 }
 
 async function copyCorrelationId() {
@@ -196,7 +198,12 @@ function downloadText(filename, text) {
 
 async function downloadFromApi(path, filename) {
   const url = `${apiBase()}${path}`;
-  const res = await fetch(url);
+  const headers = {};
+  const opsApiKey = document.getElementById("opsApiKey")?.value?.trim();
+  if (path.startsWith("/ops/") && opsApiKey) {
+    headers["x-api-key"] = opsApiKey;
+  }
+  const res = await fetch(url, { headers });
   if (!res.ok) {
     const txt = await res.text();
     throw new Error(`${res.status} ${res.statusText}: ${txt}`);
@@ -235,6 +242,34 @@ document.getElementById("btnPipelineRun").onclick = async () => {
 };
 
 document.getElementById("btnCopyCorrelation").onclick = copyCorrelationId;
+document.getElementById("btnDownloadBundle").onclick = async () => {
+  const corrId =
+    document.getElementById("bundleCorrelationId").value.trim() ||
+    pipelineLastRun?.correlation_id;
+  if (!corrId) {
+    show({ error: "Correlation ID is required." });
+    return;
+  }
+  try {
+    const url = `${apiBase()}/exports/run/${encodeURIComponent(corrId)}.zip`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error(`${res.status} ${res.statusText}: ${txt}`);
+    }
+    const blob = await res.blob();
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `dataforge_bundle_${corrId}.zip`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+    show({ downloaded_bundle_for: corrId });
+  } catch (e) {
+    show({ error: e.message });
+  }
+};
 
 document.getElementById("btnInference").onclick = async () => {
   try { show(await callApi("/inference/run", { method: "POST" })); } catch (e) { show({ error: e.message }); }

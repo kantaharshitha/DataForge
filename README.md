@@ -98,6 +98,7 @@ Use Windows Task Scheduler to run this command daily.
 - Lineage explorer with edge-type filter and pagination.
 - Export buttons for drift CSV and lineage JSON.
 - Validation results CSV export by run ID.
+- Pipeline artifact bundle export by correlation ID (`/exports/run/{correlation_id}.zip`).
 - Vercel deployment warning banner when running on `*.vercel.app`.
 - Pipeline observability response with correlation ID and stage-level durations.
 - Runtime diagnostics and DB-path visibility from `/ops/runtime`.
