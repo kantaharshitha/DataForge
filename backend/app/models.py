@@ -299,3 +299,10 @@ class PipelineRunResponse(BaseModel):
     total_duration_ms: float
     stage_metrics: list[PipelineStageMetric] = Field(default_factory=list)
     summary: dict = Field(default_factory=dict)
+
+
+class RuntimeInfoResponse(BaseModel):
+    runtime_mode: str
+    is_vercel: bool
+    db_path: str
+    db_exists: bool

@@ -17,6 +17,10 @@ Why this change:
 - DB defaults to `/tmp/dataforge.duckdb` on Vercel (`VERCEL=1`).
 - Uploaded raw files default to `/tmp/dataforge_raw` on Vercel.
 - This is suitable for simulation/demo, not durable production persistence.
+- Runtime mode can be set with `DATAFORGE_RUNTIME_MODE`:
+  - `local` (default outside Vercel)
+  - `vercel-ephemeral` (default on Vercel)
+  - `persistent` (force project `db/` path if writable)
 
 ## Local Run (Recommended)
 1. Setup:
@@ -65,6 +69,7 @@ In production, frontend calls API via `/api/*` automatically.
 - Exports: `/exports/drift/{dataset_name}.csv`, `/exports/validation/{validation_run_id}.csv`, `/exports/lineage/{lineage_run_id}.json`
 - Ops: `/ops/cleanup?keep_last_runs=20&keep_raw_files=200`
 - Ops pipeline observability: `/ops/pipeline/run?auto_accept_inference=true`
+- Ops runtime diagnostics: `/ops/runtime`
 
 ## Validation and Smoke Tests
 Run all tests:
@@ -86,3 +91,4 @@ This now executes: ingest -> inference -> validation -> drift scan -> KPI -> lin
 - Validation results CSV export by run ID.
 - Vercel deployment warning banner when running on `*.vercel.app`.
 - Pipeline observability response with correlation ID and stage-level durations.
+- Runtime diagnostics and DB-path visibility from `/ops/runtime`.

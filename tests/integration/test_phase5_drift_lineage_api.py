@@ -157,3 +157,13 @@ def test_ops_pipeline_run_returns_correlation_and_stage_timings(client: TestClie
     assert payload["correlation_id"]
     assert payload["total_duration_ms"] >= 0
     assert len(payload["stage_metrics"]) >= 6
+
+
+def test_ops_runtime_returns_runtime_and_db_info(client: TestClient) -> None:
+    response = client.get("/ops/runtime")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["runtime_mode"] in {"local", "vercel-ephemeral", "persistent"}
+    assert payload["is_vercel"] in {True, False}
+    assert payload["db_path"]
+    assert payload["db_exists"] is True

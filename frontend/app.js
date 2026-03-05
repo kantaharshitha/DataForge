@@ -20,6 +20,7 @@ let driftAll = [];
 let driftPage = 1;
 let lineageGraphAll = { nodes: [], edges: [] };
 let lineagePage = 1;
+let pipelineLastRun = null;
 
 function apiBase() {
   return document.getElementById("apiBase").value.replace(/\/$/, "");
@@ -141,6 +142,41 @@ function renderLineageEdges(graph = lineageGraphAll) {
     `Page ${paging.page}/${paging.totalPages} (${paging.totalItems} edges)`;
 }
 
+function renderPipelineObservability(payload = pipelineLastRun) {
+  const tbody = document.querySelector("#pipelineStageTable tbody");
+  tbody.innerHTML = "";
+  if (!payload || !Array.isArray(payload.stage_metrics)) {
+    document.getElementById("pipelineSummary").textContent = "No pipeline run yet.";
+    return;
+  }
+
+  for (const metric of payload.stage_metrics) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${metric.stage ?? ""}</td>
+      <td>${metric.duration_ms ?? 0}</td>
+      <td><code>${JSON.stringify(metric.details ?? {})}</code></td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  document.getElementById("pipelineSummary").textContent =
+    `Correlation ${payload.correlation_id}, total ${payload.total_duration_ms} ms, stages=${payload.stage_metrics.length}`;
+}
+
+async function copyCorrelationId() {
+  if (!pipelineLastRun || !pipelineLastRun.correlation_id) {
+    show({ error: "No pipeline correlation ID available." });
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(pipelineLastRun.correlation_id);
+    show({ copied_correlation_id: pipelineLastRun.correlation_id });
+  } catch (e) {
+    show({ error: `Clipboard copy failed: ${e.message}` });
+  }
+}
+
 function downloadText(filename, text) {
   const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -171,6 +207,29 @@ document.getElementById("btnHealth").onclick = async () => {
 document.getElementById("btnDatasets").onclick = async () => {
   try { show(await callApi("/datasets")); } catch (e) { show({ error: e.message }); }
 };
+
+document.getElementById("btnRuntimeInfo").onclick = async () => {
+  try {
+    const info = await callApi("/ops/runtime");
+    document.getElementById("runtimeSummary").textContent =
+      `mode=${info.runtime_mode}, vercel=${info.is_vercel}, db=${info.db_path}, exists=${info.db_exists}`;
+    show(info);
+  } catch (e) {
+    show({ error: e.message });
+  }
+};
+
+document.getElementById("btnPipelineRun").onclick = async () => {
+  try {
+    pipelineLastRun = await callApi("/ops/pipeline/run?auto_accept_inference=true", { method: "POST" });
+    renderPipelineObservability(pipelineLastRun);
+    show(pipelineLastRun);
+  } catch (e) {
+    show({ error: e.message });
+  }
+};
+
+document.getElementById("btnCopyCorrelation").onclick = copyCorrelationId;
 
 document.getElementById("btnInference").onclick = async () => {
   try { show(await callApi("/inference/run", { method: "POST" })); } catch (e) { show({ error: e.message }); }

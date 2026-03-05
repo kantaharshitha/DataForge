@@ -13,14 +13,19 @@ ROOT = Path(__file__).resolve().parents[2]
 MIGRATIONS_DIR = ROOT / "backend" / "migrations"
 
 IS_VERCEL = os.getenv("VERCEL") == "1"
-if IS_VERCEL:
+RUNTIME_MODE = os.getenv("DATAFORGE_RUNTIME_MODE", "").strip().lower()
+if not RUNTIME_MODE:
+    RUNTIME_MODE = "vercel-ephemeral" if IS_VERCEL else "local"
+
+if RUNTIME_MODE == "persistent":
+    default_db_path = ROOT / "db" / "dataforge.duckdb"
+elif RUNTIME_MODE == "vercel-ephemeral":
     default_db_path = Path("/tmp/dataforge.duckdb")
 else:
-    db_dir = ROOT / "db"
-    db_dir.mkdir(parents=True, exist_ok=True)
-    default_db_path = db_dir / "dataforge.duckdb"
+    default_db_path = ROOT / "db" / "dataforge.duckdb"
 
 DB_PATH = Path(os.getenv("DATAFORGE_DB", str(default_db_path)))
+DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 _SCHEMA_READY = False
 
 
@@ -44,3 +49,12 @@ def get_conn():
         yield conn
     finally:
         conn.close()
+
+
+def get_runtime_info() -> dict:
+    return {
+        "runtime_mode": RUNTIME_MODE,
+        "is_vercel": IS_VERCEL,
+        "db_path": str(DB_PATH),
+        "db_exists": DB_PATH.exists(),
+    }

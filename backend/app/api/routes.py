@@ -9,7 +9,7 @@ from io import StringIO
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import PlainTextResponse
 
-from app.db import get_conn
+from app.db import get_conn, get_runtime_info
 from app.models import (
     DatasetSummary,
     DriftEventResponse,
@@ -32,6 +32,7 @@ from app.models import (
     RelationshipCandidateResponse,
     RelationshipDecisionRequest,
     RelationshipDecisionResponse,
+    RuntimeInfoResponse,
     UploadResponse,
     ValidationRunDetailResponse,
     ValidationRunResponse,
@@ -413,3 +414,8 @@ def execute_cleanup(keep_last_runs: int = 20, keep_raw_files: int = 200) -> OpsC
 @router.post("/ops/pipeline/run", response_model=PipelineRunResponse)
 def execute_pipeline_run(auto_accept_inference: bool = True) -> PipelineRunResponse:
     return PipelineRunResponse(**run_pipeline_with_observability(auto_accept_inference=auto_accept_inference))
+
+
+@router.get("/ops/runtime", response_model=RuntimeInfoResponse)
+def get_runtime_diagnostics() -> RuntimeInfoResponse:
+    return RuntimeInfoResponse(**get_runtime_info())
