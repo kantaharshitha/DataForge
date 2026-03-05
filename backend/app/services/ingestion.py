@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import os
 import re
 import uuid
 from datetime import datetime, timezone
@@ -15,7 +16,15 @@ import pandas as pd
 from app.services.profiling import profile_dataframe
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-RAW_DIR = PROJECT_ROOT / "data" / "raw"
+IS_VERCEL = os.getenv("VERCEL") == "1"
+if os.getenv("DATAFORGE_RAW_DIR"):
+    raw_root = Path(os.getenv("DATAFORGE_RAW_DIR", ""))
+elif IS_VERCEL:
+    raw_root = Path("/tmp/dataforge_raw")
+else:
+    raw_root = PROJECT_ROOT / "data" / "raw"
+
+RAW_DIR = raw_root
 RAW_DIR.mkdir(parents=True, exist_ok=True)
 
 ALLOWED_EXTENSIONS = {".csv", ".xlsx", ".xls"}
@@ -69,6 +78,7 @@ def _load_dataframe_from_bytes(file_name: str, data_bytes: bytes, suffix: str) -
 
 def ingest_file(file_name: str, data_bytes: bytes) -> dict:
     from app.db import get_conn
+    from app.services.drift import run_schema_drift_scan
 
     suffix = validate_upload_inputs(file_name, data_bytes)
 
@@ -163,6 +173,12 @@ def ingest_file(file_name: str, data_bytes: bytes) -> dict:
             raise
 
     target_path.write_bytes(data_bytes)
+
+    # Best-effort governance hook: drift detection should not break ingestion.
+    try:
+        run_schema_drift_scan(dataset_name=dataset_name)
+    except Exception:
+        pass
 
     return {
         "dataset_id": dataset_id,

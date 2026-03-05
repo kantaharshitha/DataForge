@@ -1,0 +1,128 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DataForge Web Console</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --panel: #ffffff;
+      --line: #d9e1ee;
+      --text: #1f2937;
+      --muted: #5b6472;
+      --accent: #0b69ff;
+      --ok: #0a8f3e;
+      --warn: #bb5a00;
+      --bad: #b42318;
+    }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      background: linear-gradient(180deg, #eef3fb 0%, #f9fbff 100%);
+      color: var(--text);
+    }
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    h1 { margin: 0 0 12px; }
+    .bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    button {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    input[type="file"] { max-width: 360px; }
+    .status { font-weight: 600; }
+    .ok { color: var(--ok); }
+    .warn { color: var(--warn); }
+    .bad { color: var(--bad); }
+    table {
+      width: 100%; border-collapse: collapse; font-size: 13px;
+    }
+    th, td { border-bottom: 1px solid var(--line); text-align: left; padding: 8px; }
+    code, pre { background: #f7f9fd; border: 1px solid var(--line); border-radius: 6px; }
+    pre { padding: 10px; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>DataForge Web Console</h1>
+    <div class="panel">
+      <div class="row">
+        <label for="apiBase">API Base</label>
+        <input id="apiBase" type="text" value="/api" style="width:260px;padding:6px;border:1px solid #d9e1ee;border-radius:6px" />
+      </div>
+      <p style="color:#5b6472;margin:8px 0 0;">For local dev set to <code>http://127.0.0.1:8000</code>. On Vercel keep <code>/api</code>.</p>
+    </div>
+
+    <div class="bar">
+      <button id="btnHealth">Health</button>
+      <button id="btnDatasets">Datasets</button>
+      <button id="btnInference" class="primary">Run Inference</button>
+      <button id="btnDriftRun">Run Drift Scan</button>
+      <button id="btnDriftLatest">Latest Drift</button>
+      <button id="btnValidation" class="primary">Run Validation</button>
+      <button id="btnLineageBuild">Build Lineage</button>
+      <button id="btnLineageGraph">Lineage Graph</button>
+      <button id="btnSeedKpi">Seed KPIs</button>
+      <button id="btnRunKpi" class="primary">Run KPIs</button>
+      <button id="btnDashboard">Executive Dashboard</button>
+    </div>
+
+    <div class="panel">
+      <h3>Upload Dataset</h3>
+      <div class="row">
+        <input id="uploadFile" type="file" accept=".csv,.xlsx,.xls" />
+        <button id="btnUpload" class="primary">Upload</button>
+      </div>
+      <p id="uploadMsg" class="status"></p>
+    </div>
+
+    <div class="panel">
+      <h3>Drift and Lineage Filters</h3>
+      <div class="row">
+        <label for="driftDataset">Drift Dataset</label>
+        <input id="driftDataset" type="text" value="orders" style="width:180px;padding:6px;border:1px solid #d9e1ee;border-radius:6px" />
+        <button id="btnDriftEvents">Drift Events</button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <label for="kpiCode">KPI Code</label>
+        <input id="kpiCode" type="text" value="gross_revenue" style="width:180px;padding:6px;border:1px solid #d9e1ee;border-radius:6px" />
+        <button id="btnLineageByKpi">Lineage by KPI</button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <label for="datasetName">Dataset Name</label>
+        <input id="datasetName" type="text" value="orders" style="width:180px;padding:6px;border:1px solid #d9e1ee;border-radius:6px" />
+        <button id="btnLineageByDataset">Lineage by Dataset</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Output</h3>
+      <pre id="output">Ready.</pre>
+    </div>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>

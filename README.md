@@ -1,74 +1,77 @@
-﻿# DataForge (Phase 4)
+﻿# DataForge (Vercel-Ready Architecture)
 
 DataForge is a local-first enterprise analytics platform simulation.
 
-Implemented capabilities:
-- Upload and ingest 3-5 CSV/XLSX datasets
-- Profiling (null %, duplicates, inferred types, candidate keys)
-- Deterministic relationship inference + admin accept/reject
-- Validation engine with dimension-based rules and Data Trust Score
-- KPI registry seeding + deterministic KPI execution
-- Executive dashboard payload generation with trust context
+## Architecture (Updated)
+- `backend/`: core business logic and FastAPI routes
+- `api/index.py`: Vercel serverless entrypoint for FastAPI
+- `frontend/`: static web console (Vercel static hosting)
+- `ui/`: Streamlit console (kept for local/internal use)
+- `backend/migrations/`: schema migrations auto-applied by API startup
 
-## Stack
-- FastAPI
-- DuckDB
-- Streamlit
-- pytest
+Why this change:
+- Streamlit is not a good primary deployment target for Vercel.
+- Vercel deployment now uses static frontend + serverless Python API.
 
-## Project Structure
-- `backend/` API, services, migrations
-- `ui/` Streamlit console
-- `data/samples/` canonical demo datasets
-- `scripts/` test and smoke-run utilities
-- `tests/` unit + integration
+## Key Runtime Notes for Vercel
+- DB defaults to `/tmp/dataforge.duckdb` on Vercel (`VERCEL=1`).
+- Uploaded raw files default to `/tmp/dataforge_raw` on Vercel.
+- This is suitable for simulation/demo, not durable production persistence.
 
-## Quick Start
-1. Set up environment and dependencies:
+## Local Run (Recommended)
+1. Setup:
 ```powershell
 ./setup_phase1.ps1
 ```
 
-2. Start API (terminal 1):
+2. Start API:
 ```powershell
-.\.venv\Scripts\python.exe -m uvicorn backend.app.main:app --reload
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000
 ```
 
-3. Start UI (terminal 2):
+3. Open frontend (simple option):
+```powershell
+.\.venv\Scripts\python.exe -m http.server 3000 --directory frontend
+```
+Then open `http://127.0.0.1:3000` and set API Base to `http://127.0.0.1:8000`.
+
+4. Optional Streamlit UI (legacy local console):
 ```powershell
 .\.venv\Scripts\python.exe -m streamlit run ui/app.py
 ```
 
-4. Open UI at:
-- `http://localhost:8501`
+## Deploy to Vercel
+Project already includes:
+- `vercel.json`
+- `api/index.py`
+- `api/requirements.txt`
+- `frontend/index.html`
 
-## Recommended Flow (UI)
-1. Upload datasets (`customers`, `products`, `orders`, `order_items`, `inventory_snapshots`)
-2. Run Relationship Inference and accept valid candidates
-3. Run Validation and review trust score
-4. Seed KPI registry and run KPI calculation
-5. Open Executive Dashboard
+Deploy:
+1. Push repo to GitHub.
+2. Import project in Vercel.
+3. Deploy without custom build command.
+4. Open deployed URL.
 
-## API Endpoints (Core)
-- Upload/Profile: `/upload`, `/datasets`, `/profiles/{dataset_id}`
+In production, frontend calls API via `/api/*` automatically.
+
+## API Endpoints
+- Upload/Profile: `/health`, `/upload`, `/datasets`, `/profiles/{dataset_id}`
 - Inference: `/inference/run`, `/inference/candidates`, `/inference/decide`
+- Drift: `/drift/run`, `/drift/runs`, `/drift/latest`, `/drift/events/{dataset_name}`
+- Lineage: `/lineage/build`, `/lineage/runs`, `/lineage/graph`, `/lineage/kpi/{kpi_code}`, `/lineage/dataset/{dataset_name}`
 - Validation/Trust: `/validation/run`, `/validation/runs`, `/validation/results/{validation_run_id}`, `/trust/latest`
 - KPI/Dashboard: `/kpi/seed`, `/kpi/registry`, `/kpi/run`, `/kpi/latest`, `/dashboard/executive`
 
-## Validation and Tests
-Run migrations + all tests:
+## Validation and Smoke Tests
+Run all tests:
 ```powershell
 ./scripts/run_tests.ps1
 ```
 
-## End-to-End Smoke Pipeline
-Runs ingest -> inference -> validation -> KPI -> dashboard using sample data:
+Run full pipeline smoke flow:
 ```powershell
-$env:PYTHONPATH = "./backend"
+$env:PYTHONPATH="./backend"
 .\.venv\Scripts\python.exe .\scripts\smoke_pipeline.py
 ```
-
-## Notes
-- DuckDB file: `db/dataforge.duckdb`
-- Uploaded raw files: `data/raw/`
-- This is an internal simulation, not production security/compliance architecture.
+This now executes: ingest -> inference -> validation -> drift scan -> KPI -> lineage build -> dashboard.

@@ -9,6 +9,9 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from app.db import get_conn
 from app.models import (
     DatasetSummary,
+    DriftEventResponse,
+    DriftRunExecuteResponse,
+    DriftRunResponse,
     ExecutiveDashboardResponse,
     HealthResponse,
     InferenceRunResponse,
@@ -17,6 +20,9 @@ from app.models import (
     KpiRunResponse,
     KpiSeedResponse,
     LatestTrustScoreResponse,
+    LineageBuildResponse,
+    LineageGraphResponse,
+    LineageRunResponse,
     ProfileRunResponse,
     RelationshipCandidateResponse,
     RelationshipDecisionRequest,
@@ -25,6 +31,12 @@ from app.models import (
     ValidationRunDetailResponse,
     ValidationRunResponse,
     ValidationRunSummaryResponse,
+)
+from app.services.drift import (
+    get_latest_drift_run,
+    list_drift_events,
+    list_drift_runs,
+    run_schema_drift_scan,
 )
 from app.services.ingestion import ingest_file
 from app.services.inference import (
@@ -38,6 +50,13 @@ from app.services.kpi import (
     list_kpi_registry,
     run_kpis,
     seed_kpi_registry,
+)
+from app.services.lineage import (
+    build_lineage_graph,
+    get_lineage_for_dataset,
+    get_lineage_for_kpi,
+    get_lineage_graph,
+    list_lineage_runs,
 )
 from app.services.validation import (
     get_latest_trust_score,
@@ -224,5 +243,64 @@ def get_kpi_latest() -> KpiLatestResponse:
 def get_dashboard_executive() -> ExecutiveDashboardResponse:
     try:
         return ExecutiveDashboardResponse(**get_executive_dashboard())
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/drift/run", response_model=DriftRunExecuteResponse)
+def execute_schema_drift(dataset_name: str | None = None) -> DriftRunExecuteResponse:
+    return DriftRunExecuteResponse(**run_schema_drift_scan(dataset_name=dataset_name))
+
+
+@router.get("/drift/runs", response_model=list[DriftRunResponse])
+def get_drift_runs() -> list[DriftRunResponse]:
+    return [DriftRunResponse(**row) for row in list_drift_runs()]
+
+
+@router.get("/drift/latest", response_model=DriftRunResponse)
+def get_drift_latest() -> DriftRunResponse:
+    try:
+        return DriftRunResponse(**get_latest_drift_run())
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/drift/events/{dataset_name}", response_model=list[DriftEventResponse])
+def get_drift_dataset_events(dataset_name: str) -> list[DriftEventResponse]:
+    return [DriftEventResponse(**row) for row in list_drift_events(dataset_name)]
+
+
+@router.post("/lineage/build", response_model=LineageBuildResponse)
+def execute_lineage_build() -> LineageBuildResponse:
+    return LineageBuildResponse(**build_lineage_graph())
+
+
+@router.get("/lineage/runs", response_model=list[LineageRunResponse])
+def get_lineage_runs() -> list[LineageRunResponse]:
+    return [LineageRunResponse(**row) for row in list_lineage_runs()]
+
+
+@router.get("/lineage/graph", response_model=LineageGraphResponse)
+def get_lineage_graph_view(lineage_run_id: str | None = None) -> LineageGraphResponse:
+    try:
+        return LineageGraphResponse(**get_lineage_graph(lineage_run_id=lineage_run_id))
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/lineage/kpi/{kpi_code}", response_model=LineageGraphResponse)
+def get_lineage_kpi_view(kpi_code: str, lineage_run_id: str | None = None) -> LineageGraphResponse:
+    try:
+        return LineageGraphResponse(**get_lineage_for_kpi(kpi_code=kpi_code, lineage_run_id=lineage_run_id))
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/lineage/dataset/{dataset_name}", response_model=LineageGraphResponse)
+def get_lineage_dataset_view(dataset_name: str, lineage_run_id: str | None = None) -> LineageGraphResponse:
+    try:
+        return LineageGraphResponse(
+            **get_lineage_for_dataset(dataset_name=dataset_name, lineage_run_id=lineage_run_id)
+        )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

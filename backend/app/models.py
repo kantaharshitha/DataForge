@@ -205,3 +205,76 @@ class ExecutiveDashboardResponse(BaseModel):
     generated_at: datetime
     cards: list[DashboardCardResponse]
     trust_context: DashboardTrustContextResponse | None = None
+
+
+class DriftRunResponse(BaseModel):
+    drift_run_id: str
+    dataset_name: str
+    from_version: int | None = None
+    to_version: int | None = None
+    run_at: datetime
+    event_count: int
+    high_count: int
+    medium_count: int
+    low_count: int
+    status: str
+
+
+class DriftRunExecuteResponse(BaseModel):
+    run_count: int
+    total_events: int
+    runs: list[DriftRunResponse] = Field(default_factory=list)
+
+
+class DriftEventResponse(BaseModel):
+    event_id: str
+    drift_run_id: str
+    dataset_name: str
+    change_type: str
+    column_name: str | None = None
+    old_value: str | None = None
+    new_value: str | None = None
+    severity: str
+    details: dict = Field(default_factory=dict)
+    created_at: datetime
+
+
+class LineageBuildResponse(BaseModel):
+    lineage_run_id: str
+    run_at: datetime
+    status: str
+    node_count: int
+    edge_count: int
+
+
+class LineageRunResponse(BaseModel):
+    lineage_run_id: str
+    run_at: datetime
+    status: str
+    source_context: dict = Field(default_factory=dict)
+
+
+class LineageNodeResponse(BaseModel):
+    node_id: str
+    node_type: str
+    node_key: str
+    display_name: str
+    metadata: dict = Field(default_factory=dict)
+    created_at: datetime
+    updated_at: datetime
+
+
+class LineageEdgeResponse(BaseModel):
+    edge_id: str
+    lineage_run_id: str
+    from_node_id: str
+    to_node_id: str
+    edge_type: str
+    metadata: dict = Field(default_factory=dict)
+    created_at: datetime
+
+
+class LineageGraphResponse(BaseModel):
+    lineage_run_id: str
+    nodes: list[LineageNodeResponse] = Field(default_factory=list)
+    edges: list[LineageEdgeResponse] = Field(default_factory=list)

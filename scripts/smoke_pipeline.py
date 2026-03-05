@@ -2,8 +2,10 @@
 
 from pathlib import Path
 
+from app.services.drift import run_schema_drift_scan
 from app.services.ingestion import ingest_file
 from app.services.inference import list_relationship_candidates, run_relationship_inference, decide_relationship_candidate
+from app.services.lineage import build_lineage_graph, get_lineage_graph
 from app.services.validation import run_validation
 from app.services.kpi import seed_kpi_registry, run_kpis, get_executive_dashboard
 
@@ -37,16 +39,25 @@ def main() -> None:
             accepted += 1
     print(f"  - accepted={accepted}")
 
-    print("[4/6] Running validation and trust score...")
+    print("[4/8] Running validation and trust score...")
     validation = run_validation()
     print(f"  - validation_run_id={validation['validation_run_id'][:8]}, trust_score={validation['trust_score']}")
 
-    print("[5/6] Seeding KPI registry and running KPI pipeline...")
+    print("[5/8] Running schema drift scan...")
+    drift = run_schema_drift_scan()
+    print(f"  - drift_runs={drift['run_count']}, total_events={drift['total_events']}")
+
+    print("[6/8] Seeding KPI registry and running KPI pipeline...")
     inserted = seed_kpi_registry()
     kpi_run = run_kpis()
     print(f"  - kpi_seeded={inserted}, kpi_run_id={kpi_run['kpi_run_id'][:8]}")
 
-    print("[6/6] Building executive dashboard payload...")
+    print("[7/8] Building lineage graph...")
+    lineage = build_lineage_graph()
+    graph = get_lineage_graph(lineage["lineage_run_id"])
+    print(f"  - lineage_run_id={lineage['lineage_run_id'][:8]}, nodes={len(graph['nodes'])}, edges={len(graph['edges'])}")
+
+    print("[8/8] Building executive dashboard payload...")
     dashboard = get_executive_dashboard()
     print(f"  - cards={len(dashboard['cards'])}, has_trust_context={dashboard['trust_context'] is not None}")
 

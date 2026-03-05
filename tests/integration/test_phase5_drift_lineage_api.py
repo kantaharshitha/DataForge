@@ -1,0 +1,92 @@
+﻿from __future__ import annotations
+
+from pathlib import Path
+
+from fastapi.testclient import TestClient
+import pytest
+
+import app.db as db_module
+import app.services.ingestion as ingestion_module
+from app.main import app
+import run_migrations
+
+
+@pytest.fixture()
+def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
+    test_db = tmp_path / "test_dataforge_phase5.duckdb"
+    test_raw = tmp_path / "raw"
+    test_raw.mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setattr(db_module, "DB_PATH", test_db)
+    monkeypatch.setattr(ingestion_module, "RAW_DIR", test_raw)
+
+    run_migrations.run_migrations()
+
+    return TestClient(app)
+
+
+def test_schema_drift_scan_detects_column_and_type_changes(client: TestClient) -> None:
+    v1 = b"customer_id,customer_name,amount\nC001,Acme,10.0\n"
+    v2 = b"customer_id,amount,promo_code\nC001,ten,NEW10\n"
+
+    assert client.post("/upload", files={"file": ("customers.csv", v1, "text/csv")}).status_code == 200
+    assert client.post("/upload", files={"file": ("customers.csv", v2, "text/csv")}).status_code == 200
+
+    run = client.post("/drift/run", params={"dataset_name": "customers"})
+    assert run.status_code == 200
+    run_body = run.json()
+    assert run_body["run_count"] >= 1
+
+    latest = client.get("/drift/latest")
+    assert latest.status_code == 200
+    assert latest.json()["dataset_name"] == "customers"
+
+    events = client.get("/drift/events/customers")
+    assert events.status_code == 200
+    change_types = {e["change_type"] for e in events.json()}
+    assert "column_added" in change_types
+    assert "column_removed" in change_types
+
+
+def test_lineage_build_and_queries(client: TestClient) -> None:
+    customers = b"customer_id,customer_name\nC001,Acme\nC002,Northwind\n"
+    products = b"product_id,sku,unit_cost\nP001,SKU-1,10\nP002,SKU-2,15\n"
+    orders = b"order_id,customer_id,order_date,ship_date\nO1001,C001,2026-02-01,2026-02-02\nO1002,C002,2026-02-03,2026-02-04\n"
+    order_items = b"order_item_id,order_id,product_id,quantity,unit_price,discount_amount\nI1,O1001,P001,2,20,1\nI2,O1002,P002,1,30,0\n"
+    inventory = b"snapshot_date,product_id,warehouse_id,stockout_flag\n2026-02-01,P001,W1,false\n2026-02-01,P002,W1,true\n"
+
+    assert client.post("/upload", files={"file": ("customers.csv", customers, "text/csv")}).status_code == 200
+    assert client.post("/upload", files={"file": ("products.csv", products, "text/csv")}).status_code == 200
+    assert client.post("/upload", files={"file": ("orders.csv", orders, "text/csv")}).status_code == 200
+    assert client.post("/upload", files={"file": ("order_items.csv", order_items, "text/csv")}).status_code == 200
+    assert client.post("/upload", files={"file": ("inventory_snapshots.csv", inventory, "text/csv")}).status_code == 200
+
+    assert client.post("/inference/run").status_code == 200
+    for cand in client.get("/inference/candidates").json():
+        if cand["confidence_score"] >= 0.6:
+            client.post(
+                "/inference/decide",
+                json={"candidate_id": cand["candidate_id"], "decision": "ACCEPTED"},
+            )
+
+    assert client.post("/validation/run").status_code == 200
+    assert client.post("/kpi/seed").status_code == 200
+    assert client.post("/kpi/run").status_code == 200
+
+    build = client.post("/lineage/build")
+    assert build.status_code == 200
+    build_body = build.json()
+    assert build_body["node_count"] > 0
+    assert build_body["edge_count"] > 0
+
+    graph = client.get("/lineage/graph")
+    assert graph.status_code == 200
+    assert len(graph.json()["nodes"]) > 0
+
+    by_kpi = client.get("/lineage/kpi/gross_revenue")
+    assert by_kpi.status_code == 200
+    assert len(by_kpi.json()["nodes"]) > 0
+
+    by_dataset = client.get("/lineage/dataset/orders")
+    assert by_dataset.status_code == 200
+    assert len(by_dataset.json()["nodes"]) > 0
