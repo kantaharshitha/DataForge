@@ -103,6 +103,17 @@ Automated cleanup is also available with GitHub Actions:
   - `DATAFORGE_BASE_URL` (example: `https://your-app.vercel.app/api`)
   - `DATAFORGE_OPS_API_KEY`
 
+Deployment verification automation:
+```powershell
+.\scripts\verify_deployment.ps1 -BaseUrl "https://your-app.vercel.app/api" -OpsApiKey "<DATAFORGE_OPS_API_KEY>"
+```
+
+Manual workflow dispatch helper (GitHub API):
+```powershell
+$env:GITHUB_TOKEN="<token>"
+.\scripts\trigger_cleanup_workflow.ps1 -Repo "kantaharshitha/DataForge" -Ref "main"
+```
+
 ## Frontend Explorer Features
 - Drift explorer with severity filter and pagination.
 - Lineage explorer with edge-type filter and pagination.
@@ -116,3 +127,4 @@ Automated cleanup is also available with GitHub Actions:
 ## Operations
 - Runbook: `OPERATIONS.md`
 - Environment template: `.env.example`
+- Release notes: `RELEASE_NOTES_v1.3-ops-observability.md`

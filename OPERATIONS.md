@@ -48,6 +48,11 @@ Capture `correlation_id` from response.
 curl -L -o dataforge_bundle.zip "https://your-app.vercel.app/api/exports/run/<correlation_id>.zip"
 ```
 
+PowerShell automation (recommended):
+```powershell
+.\scripts\verify_deployment.ps1 -BaseUrl "https://your-app.vercel.app/api" -OpsApiKey "<DATAFORGE_OPS_API_KEY>"
+```
+
 ## Retention Automation
 - Workflow file: `.github/workflows/nightly_cleanup.yml`
 - Required GitHub Actions secrets:
@@ -58,6 +63,12 @@ curl -L -o dataforge_bundle.zip "https://your-app.vercel.app/api/exports/run/<co
 Manual trigger:
 1. Open GitHub Actions.
 2. Run workflow `Nightly Cleanup` (workflow_dispatch).
+
+PowerShell API trigger (requires `GITHUB_TOKEN` env var):
+```powershell
+$env:GITHUB_TOKEN="<token-with-workflow-permission>"
+.\scripts\trigger_cleanup_workflow.ps1 -Repo "kantaharshitha/DataForge" -Ref "main"
+```
 
 ## Incident Checks
 1. `500` on ops routes:
