@@ -449,3 +449,24 @@ def test_alert_sla_history_endpoint(client: TestClient) -> None:
         assert "avg_mtta_minutes" in row
         assert "escalations" in row
         assert "sla_breaches" in row
+
+
+def test_alert_sla_breach_inbox_endpoint(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    products_ok = b"product_id,sku,unit_cost\nP001,SKU-1,10\nP002,SKU-2,12\n"
+    products_bad = b"product_id,sku,unit_cost\nP001,SKU-1,-10\nP002,SKU-2,-12\n"
+    assert client.post("/upload", files={"file": ("products.csv", products_ok, "text/csv")}).status_code == 200
+    assert client.post("/validation/run").status_code == 200
+    assert client.post("/upload", files={"file": ("products.csv", products_bad, "text/csv")}).status_code == 200
+    assert client.post("/validation/run").status_code == 200
+
+    monkeypatch.setenv("DATAFORGE_SLA_MAX_OPEN_HIGH", "0")
+    assert client.post("/ops/alerts/sla/check", params={"window_hours": 24}).status_code == 200
+    assert client.post("/ops/alerts/sla/check", params={"window_hours": 24}).status_code == 200
+
+    response = client.get("/alerts/sla/breaches", params={"days": 14, "limit": 50})
+    assert response.status_code == 200
+    payload = response.json()
+    assert "events" in payload
+    assert "suppressed_last_24h" in payload
+    assert payload["suppressed_last_24h"] >= 1
+    assert payload["last_run"] is not None

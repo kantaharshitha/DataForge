@@ -20,6 +20,8 @@ from app.models import (
     AlertAcknowledgeResponse,
     AlertEventResponse,
     AlertEscalationRunResponse,
+    AlertSLABreachEventResponse,
+    AlertSLABreachInboxResponse,
     AlertSLAHistoryPointResponse,
     AlertSLABreachRunResponse,
     AlertSLAResponse,
@@ -54,6 +56,7 @@ from app.models import (
 from app.services.alerts import (
     acknowledge_alert,
     assign_alert,
+    list_alert_sla_breaches,
     list_recent_alerts,
     run_alert_escalation_scan,
     run_alert_sla_breach_check,
@@ -562,6 +565,13 @@ def get_alerts_sla(window_hours: int = 24) -> AlertSLAResponse:
 @router.get("/alerts/sla/history", response_model=list[AlertSLAHistoryPointResponse])
 def get_alerts_sla_history(days: int = 14) -> list[AlertSLAHistoryPointResponse]:
     return [AlertSLAHistoryPointResponse(**row) for row in get_alert_sla_history(days=days)]
+
+
+@router.get("/alerts/sla/breaches", response_model=AlertSLABreachInboxResponse)
+def get_alerts_sla_breaches(days: int = 14, limit: int = 100) -> AlertSLABreachInboxResponse:
+    payload = list_alert_sla_breaches(days=days, limit=limit)
+    payload["events"] = [AlertSLABreachEventResponse(**row) for row in payload["events"]]
+    return AlertSLABreachInboxResponse(**payload)
 
 
 @router.post("/alerts/acknowledge", response_model=AlertAcknowledgeResponse)

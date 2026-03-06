@@ -44,6 +44,9 @@ Date: 2026-03-06
 - SLA history:
   - `/alerts/sla/history?days=14`
   - Frontend trend table for acknowledged alerts, MTTA, escalations, and SLA breaches.
+- SLA breach inbox:
+  - `/alerts/sla/breaches?days=14&limit=50`
+  - Includes recent breach events and `suppressed_last_24h`.
 
 ### Quality
 - Integration tests for trust-drop and drift-high alert scenarios.

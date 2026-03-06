@@ -27,6 +27,7 @@ let alertsPage = 1;
 let alertsSummary = null;
 let alertsSla = null;
 let alertsSlaHistory = [];
+let alertsSlaBreaches = null;
 
 function apiBase() {
   return document.getElementById("apiBase").value.replace(/\/$/, "");
@@ -274,6 +275,32 @@ function renderSlaHistory(rows = alertsSlaHistory) {
   }
 }
 
+function renderSlaBreaches(payload = alertsSlaBreaches) {
+  const tbody = document.querySelector("#slaBreachTable tbody");
+  const meta = document.getElementById("slaBreachMeta");
+  if (!tbody || !meta) return;
+  tbody.innerHTML = "";
+  if (!payload) {
+    meta.textContent = "";
+    return;
+  }
+  const events = payload.events || [];
+  for (const row of events) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${row.created_at ?? ""}</td>
+      <td>${row.alert_type ?? ""}</td>
+      <td>${row.severity ?? ""}</td>
+      <td>${row.delivery_status ?? ""}</td>
+      <td>${row.message ?? ""}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+  const lastRun = payload.last_run;
+  meta.textContent =
+    `Breach events=${events.length}, suppressed(last24h)=${payload.suppressed_last_24h}, last_run=${lastRun ? lastRun.created_at : "-"}`;
+}
+
 async function copyCorrelationId() {
   if (!pipelineLastRun || !pipelineLastRun.correlation_id) {
     show({ error: "No pipeline correlation ID available." });
@@ -417,11 +444,13 @@ document.getElementById("btnAlerts").onclick = async () => {
     alertsSummary = await callApi("/alerts/summary?window_hours=24");
     alertsSla = await callApi("/alerts/sla?window_hours=24");
     alertsSlaHistory = await callApi("/alerts/sla/history?days=14");
+    alertsSlaBreaches = await callApi("/alerts/sla/breaches?days=14&limit=50");
     alertsPage = 1;
     renderAlerts();
     renderAlertsSummary();
     renderAlertsSla();
     renderSlaHistory();
+    renderSlaBreaches();
     show(alertsAll);
   } catch (e) {
     show({ error: e.message });
@@ -535,10 +564,12 @@ document.getElementById("btnRunSlaCheck").onclick = async () => {
     alertsSummary = await callApi("/alerts/summary?window_hours=24");
     alertsSla = await callApi("/alerts/sla?window_hours=24");
     alertsSlaHistory = await callApi("/alerts/sla/history?days=14");
+    alertsSlaBreaches = await callApi("/alerts/sla/breaches?days=14&limit=50");
     renderAlerts();
     renderAlertsSummary();
     renderAlertsSla();
     renderSlaHistory();
+    renderSlaBreaches();
     show(result);
   } catch (e) {
     show({ error: e.message });
@@ -550,6 +581,16 @@ document.getElementById("btnLoadSlaHistory").onclick = async () => {
     alertsSlaHistory = await callApi("/alerts/sla/history?days=14");
     renderSlaHistory();
     show(alertsSlaHistory);
+  } catch (e) {
+    show({ error: e.message });
+  }
+};
+
+document.getElementById("btnLoadSlaBreaches").onclick = async () => {
+  try {
+    alertsSlaBreaches = await callApi("/alerts/sla/breaches?days=14&limit=50");
+    renderSlaBreaches();
+    show(alertsSlaBreaches);
   } catch (e) {
     show({ error: e.message });
   }

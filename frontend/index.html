@@ -290,6 +290,7 @@
         <button id="btnRunEscalation">Run Escalation Scan</button>
         <button id="btnRunSlaCheck">Run SLA Check</button>
         <button id="btnLoadSlaHistory">Load SLA History</button>
+        <button id="btnLoadSlaBreaches">Load Breach Inbox</button>
       </div>
       <div class="row" style="margin-top:8px">
         <span id="slaOpenHigh" style="padding:6px 10px;border-radius:10px;background:#fff7ed;border:1px solid #f3c77a;color:#92400e;">Open High: -</span>
@@ -329,6 +330,23 @@
               <th>Avg MTTA (min)</th>
               <th>Escalations</th>
               <th>SLA Breaches</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <span id="slaBreachMeta" style="color:#5b6472"></span>
+      </div>
+      <div style="margin-top:12px; overflow:auto;">
+        <table id="slaBreachTable">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Type</th>
+              <th>Severity</th>
+              <th>Delivery</th>
+              <th>Message</th>
             </tr>
           </thead>
           <tbody></tbody>

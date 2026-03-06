@@ -414,7 +414,7 @@ def run_alert_sla_breach_check(window_hours: int = 24) -> dict:
     elif float(sla["escalations_per_day"]) > max_escalations_per_day:
         suppressed.append("escalations_per_day")
 
-    return {
+    payload = {
         "window_hours": sla["window_hours"],
         "thresholds": {
             "max_open_high_alerts": max_open_high,
@@ -427,6 +427,25 @@ def run_alert_sla_breach_check(window_hours: int = 24) -> dict:
         "suppressed_count": len(suppressed),
         "suppressed_metrics": suppressed,
     }
+    with get_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO sla_breach_runs (
+                run_id, window_hours, thresholds_json, sla_json,
+                breach_count, suppressed_count, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                str(uuid.uuid4()),
+                int(payload["window_hours"]),
+                json.dumps(payload["thresholds"]),
+                json.dumps(payload["sla"]),
+                int(payload["breach_count"]),
+                int(payload["suppressed_count"]),
+                _utc_now_iso(),
+            ],
+        )
+    return payload
 
 
 def get_alert_sla_history(days: int = 14) -> list[dict]:
@@ -501,6 +520,71 @@ def get_alert_sla_history(days: int = 14) -> list[dict]:
         rec["sla_breaches"] = int(row[1])
 
     return [history[key] for key in sorted(history.keys())]
+
+
+def list_alert_sla_breaches(days: int = 14, limit: int = 100) -> dict:
+    safe_days = max(1, min(90, int(days)))
+    safe_limit = max(1, min(500, int(limit)))
+
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT alert_id, alert_type, severity, title, message, context_json, delivery_status, created_at
+            FROM alert_events
+            WHERE alert_type LIKE 'SLA_BREACH_%'
+              AND created_at >= (CURRENT_TIMESTAMP - (? * INTERVAL '1 day'))
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            [safe_days, safe_limit],
+        ).fetchall()
+
+        recent_suppressed = conn.execute(
+            """
+            SELECT COALESCE(SUM(suppressed_count), 0)
+            FROM sla_breach_runs
+            WHERE created_at >= (CURRENT_TIMESTAMP - INTERVAL '24 hour')
+            """
+        ).fetchone()[0]
+
+        last_run = conn.execute(
+            """
+            SELECT run_id, window_hours, breach_count, suppressed_count, created_at
+            FROM sla_breach_runs
+            ORDER BY created_at DESC
+            LIMIT 1
+            """
+        ).fetchone()
+
+    events = [
+        {
+            "alert_id": row[0],
+            "alert_type": row[1],
+            "severity": row[2],
+            "title": row[3],
+            "message": row[4],
+            "context": json.loads(row[5]) if row[5] else {},
+            "delivery_status": row[6],
+            "created_at": row[7],
+        }
+        for row in rows
+    ]
+
+    return {
+        "days": safe_days,
+        "limit": safe_limit,
+        "events": events,
+        "suppressed_last_24h": int(recent_suppressed or 0),
+        "last_run": {
+            "run_id": last_run[0],
+            "window_hours": last_run[1],
+            "breach_count": last_run[2],
+            "suppressed_count": last_run[3],
+            "created_at": last_run[4],
+        }
+        if last_run
+        else None,
+    }
 
 
 def assign_alert(

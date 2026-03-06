@@ -402,3 +402,22 @@ class AlertSLAHistoryPointResponse(BaseModel):
     avg_mtta_minutes: float | None = None
     escalations: int
     sla_breaches: int
+
+
+class AlertSLABreachEventResponse(BaseModel):
+    alert_id: str
+    alert_type: str
+    severity: str
+    title: str
+    message: str
+    context: dict = Field(default_factory=dict)
+    delivery_status: str
+    created_at: datetime
+
+
+class AlertSLABreachInboxResponse(BaseModel):
+    days: int
+    limit: int
+    events: list[AlertSLABreachEventResponse] = Field(default_factory=list)
+    suppressed_last_24h: int
+    last_run: dict | None = None
