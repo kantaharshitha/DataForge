@@ -396,6 +396,80 @@ def run_alert_sla_breach_check(window_hours: int = 24) -> dict:
     }
 
 
+def get_alert_sla_history(days: int = 14) -> list[dict]:
+    safe_days = max(1, min(90, int(days)))
+    history: dict[str, dict] = {}
+
+    def _upsert(day_key: str) -> dict:
+        if day_key not in history:
+            history[day_key] = {
+                "date": day_key,
+                "acknowledged_alerts": 0,
+                "avg_mtta_minutes": None,
+                "escalations": 0,
+                "sla_breaches": 0,
+            }
+        return history[day_key]
+
+    with get_conn() as conn:
+        ack_rows = conn.execute(
+            """
+            SELECT
+              CAST(DATE_TRUNC('day', a.acknowledged_at) AS DATE) AS d,
+              COUNT(*) AS ack_count,
+              AVG(EXTRACT(EPOCH FROM (a.acknowledged_at - e.created_at)) / 60.0) AS avg_mtta
+            FROM alert_events e
+            JOIN alert_acknowledgements a ON e.alert_id = a.alert_id
+            WHERE a.acknowledged_at >= (CURRENT_TIMESTAMP - (? * INTERVAL '1 day'))
+            GROUP BY 1
+            ORDER BY 1
+            """,
+            [safe_days],
+        ).fetchall()
+
+        esc_rows = conn.execute(
+            """
+            SELECT
+              CAST(DATE_TRUNC('day', escalated_at) AS DATE) AS d,
+              COUNT(*) AS esc_count
+            FROM alert_escalations
+            WHERE escalated_at >= (CURRENT_TIMESTAMP - (? * INTERVAL '1 day'))
+            GROUP BY 1
+            ORDER BY 1
+            """,
+            [safe_days],
+        ).fetchall()
+
+        breach_rows = conn.execute(
+            """
+            SELECT
+              CAST(DATE_TRUNC('day', created_at) AS DATE) AS d,
+              COUNT(*) AS breach_count
+            FROM alert_events
+            WHERE alert_type LIKE 'SLA_BREACH_%'
+              AND created_at >= (CURRENT_TIMESTAMP - (? * INTERVAL '1 day'))
+            GROUP BY 1
+            ORDER BY 1
+            """,
+            [safe_days],
+        ).fetchall()
+
+    for row in ack_rows:
+        rec = _upsert(str(row[0]))
+        rec["acknowledged_alerts"] = int(row[1])
+        rec["avg_mtta_minutes"] = round(float(row[2]), 2) if row[2] is not None else None
+
+    for row in esc_rows:
+        rec = _upsert(str(row[0]))
+        rec["escalations"] = int(row[1])
+
+    for row in breach_rows:
+        rec = _upsert(str(row[0]))
+        rec["sla_breaches"] = int(row[1])
+
+    return [history[key] for key in sorted(history.keys())]
+
+
 def assign_alert(
     *,
     alert_id: str,

@@ -172,3 +172,32 @@ Mitigations:
 - API reliability (integration pass rate)
 - Reduced time-to-root-cause during debugging
 - Deterministic repeatability of drift/lineage outputs
+
+## 13. Implementation Status Update (Post-Phase Extensions)
+The following capabilities were implemented after initial Phase 5 delivery to support operational governance:
+
+- Ops observability:
+  - Runtime diagnostics (`/ops/runtime`)
+  - Pipeline observability run (`/ops/pipeline/run`)
+  - Artifact bundle export (`/exports/run/{correlation_id}.zip`)
+- Alerting:
+  - Recent alerts, summary, SLA metrics, and SLA history:
+    - `/alerts/recent`
+    - `/alerts/summary`
+    - `/alerts/sla`
+    - `/alerts/sla/history`
+  - Alert acknowledgement and assignment:
+    - `/alerts/acknowledge`
+    - `/alerts/assign`
+  - Escalation + SLA breach checks (ops):
+    - `/ops/alerts/escalate/run`
+    - `/ops/alerts/sla/check`
+- Alert governance exports:
+  - `/exports/alerts.csv`
+  - `/exports/alerts_acknowledgements.csv`
+- Scheduled operations workflows:
+  - nightly cleanup
+  - nightly escalation scan
+  - nightly SLA check
+
+These are deliberate extensions and do not change the original Phase 5 scope; they harden operational reliability for enterprise simulation.

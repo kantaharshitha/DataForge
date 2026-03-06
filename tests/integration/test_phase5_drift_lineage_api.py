@@ -416,3 +416,31 @@ def test_alert_sla_breach_check_endpoint(client: TestClient, monkeypatch: pytest
     assert "breach_count" in payload
     assert "thresholds" in payload
     assert payload["breach_count"] >= 1
+
+
+def test_alert_sla_history_endpoint(client: TestClient) -> None:
+    products_ok = b"product_id,sku,unit_cost\nP001,SKU-1,10\nP002,SKU-2,12\n"
+    products_bad = b"product_id,sku,unit_cost\nP001,SKU-1,-10\nP002,SKU-2,-12\n"
+    assert client.post("/upload", files={"file": ("products.csv", products_ok, "text/csv")}).status_code == 200
+    assert client.post("/validation/run").status_code == 200
+    assert client.post("/upload", files={"file": ("products.csv", products_bad, "text/csv")}).status_code == 200
+    assert client.post("/validation/run").status_code == 200
+
+    alerts = client.get("/alerts/recent", params={"limit": 10})
+    target = alerts.json()[0]
+    assert client.post(
+        "/alerts/acknowledge",
+        json={"alert_id": target["alert_id"], "acknowledged_by": "ops_admin", "note": "history-check"},
+    ).status_code == 200
+
+    history = client.get("/alerts/sla/history", params={"days": 14})
+    assert history.status_code == 200
+    payload = history.json()
+    assert isinstance(payload, list)
+    if payload:
+        row = payload[0]
+        assert "date" in row
+        assert "acknowledged_alerts" in row
+        assert "avg_mtta_minutes" in row
+        assert "escalations" in row
+        assert "sla_breaches" in row

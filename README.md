@@ -83,6 +83,7 @@ Before production verification, set these Vercel environment variables:
 - Alerts: `/alerts/recent?limit=50`
 - Alerts summary: `/alerts/summary?window_hours=24`
 - Alerts SLA: `/alerts/sla?window_hours=24`
+- Alerts SLA history: `/alerts/sla/history?days=14`
 - Alerts SLA check (ops): `POST /ops/alerts/sla/check?window_hours=24`
 - Alerts acknowledge: `POST /alerts/acknowledge`
 - Alerts assign: `POST /alerts/assign`
@@ -165,6 +166,7 @@ $env:GITHUB_TOKEN="<token>"
 - Alert assignment and manual escalation scan controls.
 - Alert SLA cards (open high alerts, MTTA, escalations/day).
 - Manual SLA breach-check trigger from frontend (`Run SLA Check`).
+- SLA history trend table from frontend (`Load SLA History`).
 
 ## Operations
 - Runbook: `OPERATIONS.md`

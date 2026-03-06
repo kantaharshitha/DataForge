@@ -20,6 +20,7 @@ from app.models import (
     AlertAcknowledgeResponse,
     AlertEventResponse,
     AlertEscalationRunResponse,
+    AlertSLAHistoryPointResponse,
     AlertSLABreachRunResponse,
     AlertSLAResponse,
     AlertSummaryResponse,
@@ -56,6 +57,7 @@ from app.services.alerts import (
     list_recent_alerts,
     run_alert_escalation_scan,
     run_alert_sla_breach_check,
+    get_alert_sla_history,
     summarize_alert_sla,
     summarize_alerts,
 )
@@ -555,6 +557,11 @@ def get_alerts_summary(window_hours: int = 24) -> AlertSummaryResponse:
 @router.get("/alerts/sla", response_model=AlertSLAResponse)
 def get_alerts_sla(window_hours: int = 24) -> AlertSLAResponse:
     return AlertSLAResponse(**summarize_alert_sla(window_hours=window_hours))
+
+
+@router.get("/alerts/sla/history", response_model=list[AlertSLAHistoryPointResponse])
+def get_alerts_sla_history(days: int = 14) -> list[AlertSLAHistoryPointResponse]:
+    return [AlertSLAHistoryPointResponse(**row) for row in get_alert_sla_history(days=days)]
 
 
 @router.post("/alerts/acknowledge", response_model=AlertAcknowledgeResponse)

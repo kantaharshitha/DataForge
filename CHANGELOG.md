@@ -40,6 +40,9 @@ Date: 2026-03-06
   - Threshold-driven breach alerts for open high, MTTA, and escalations/day.
 - Scheduled SLA workflow:
   - `.github/workflows/nightly_alert_sla_check.yml`
+- SLA history:
+  - `/alerts/sla/history?days=14`
+  - Frontend trend table for acknowledged alerts, MTTA, escalations, and SLA breaches.
 
 ### Quality
 - Integration tests for trust-drop and drift-high alert scenarios.

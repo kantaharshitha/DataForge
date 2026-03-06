@@ -392,3 +392,11 @@ class AlertSLABreachRunResponse(BaseModel):
     sla: dict = Field(default_factory=dict)
     breach_count: int
     breaches: list[dict] = Field(default_factory=list)
+
+
+class AlertSLAHistoryPointResponse(BaseModel):
+    date: str
+    acknowledged_alerts: int
+    avg_mtta_minutes: float | None = None
+    escalations: int
+    sla_breaches: int

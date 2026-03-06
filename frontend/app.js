@@ -26,6 +26,7 @@ let alertsAll = [];
 let alertsPage = 1;
 let alertsSummary = null;
 let alertsSla = null;
+let alertsSlaHistory = [];
 
 function apiBase() {
   return document.getElementById("apiBase").value.replace(/\/$/, "");
@@ -256,6 +257,23 @@ function renderAlertsSla(payload = alertsSla) {
   document.getElementById("slaEscPerDay").textContent = `Escalations/Day: ${payload.escalations_per_day}`;
 }
 
+function renderSlaHistory(rows = alertsSlaHistory) {
+  const tbody = document.querySelector("#slaHistoryTable tbody");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+  for (const row of rows) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${row.date ?? ""}</td>
+      <td>${row.acknowledged_alerts ?? 0}</td>
+      <td>${row.avg_mtta_minutes ?? "-"}</td>
+      <td>${row.escalations ?? 0}</td>
+      <td>${row.sla_breaches ?? 0}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
 async function copyCorrelationId() {
   if (!pipelineLastRun || !pipelineLastRun.correlation_id) {
     show({ error: "No pipeline correlation ID available." });
@@ -398,10 +416,12 @@ document.getElementById("btnAlerts").onclick = async () => {
     alertsAll = await callApi("/alerts/recent?limit=200");
     alertsSummary = await callApi("/alerts/summary?window_hours=24");
     alertsSla = await callApi("/alerts/sla?window_hours=24");
+    alertsSlaHistory = await callApi("/alerts/sla/history?days=14");
     alertsPage = 1;
     renderAlerts();
     renderAlertsSummary();
     renderAlertsSla();
+    renderSlaHistory();
     show(alertsAll);
   } catch (e) {
     show({ error: e.message });
@@ -514,10 +534,22 @@ document.getElementById("btnRunSlaCheck").onclick = async () => {
     alertsAll = await callApi("/alerts/recent?limit=200");
     alertsSummary = await callApi("/alerts/summary?window_hours=24");
     alertsSla = await callApi("/alerts/sla?window_hours=24");
+    alertsSlaHistory = await callApi("/alerts/sla/history?days=14");
     renderAlerts();
     renderAlertsSummary();
     renderAlertsSla();
+    renderSlaHistory();
     show(result);
+  } catch (e) {
+    show({ error: e.message });
+  }
+};
+
+document.getElementById("btnLoadSlaHistory").onclick = async () => {
+  try {
+    alertsSlaHistory = await callApi("/alerts/sla/history?days=14");
+    renderSlaHistory();
+    show(alertsSlaHistory);
   } catch (e) {
     show({ error: e.message });
   }
