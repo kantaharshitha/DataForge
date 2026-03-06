@@ -2,6 +2,7 @@
 const uploadMsg = document.getElementById("uploadMsg");
 const apiInput = document.getElementById("apiBase");
 const deployWarning = document.getElementById("deployWarning");
+const opsAuthBadge = document.getElementById("opsAuthBadge");
 
 if (
   apiInput.value === "/api" &&
@@ -45,6 +46,31 @@ async function callApi(path, options = {}) {
     throw new Error(`${res.status} ${res.statusText}: ${JSON.stringify(payload)}`);
   }
   return payload;
+}
+
+function setOpsAuthBadge(label, color = "#334155", bg = "#eef3fb") {
+  if (!opsAuthBadge) return;
+  opsAuthBadge.textContent = `Ops auth: ${label}`;
+  opsAuthBadge.style.color = color;
+  opsAuthBadge.style.background = bg;
+}
+
+async function refreshOpsAuthStatus() {
+  try {
+    const url = `${apiBase()}/ops/runtime`;
+    const anonymous = await fetch(url);
+    if (anonymous.status === 401) {
+      setOpsAuthBadge("enabled", "#92400e", "#fff7ed");
+      return;
+    }
+    if (anonymous.ok) {
+      setOpsAuthBadge("disabled", "#166534", "#ecfdf3");
+      return;
+    }
+    setOpsAuthBadge(`unknown (${anonymous.status})`);
+  } catch {
+    setOpsAuthBadge("unreachable", "#991b1b", "#fef2f2");
+  }
 }
 
 function show(obj) {
@@ -225,6 +251,7 @@ document.getElementById("btnRuntimeInfo").onclick = async () => {
     const info = await callApi("/ops/runtime");
     document.getElementById("runtimeSummary").textContent =
       `mode=${info.runtime_mode}, vercel=${info.is_vercel}, db=${info.db_path}, exists=${info.db_exists}`;
+    await refreshOpsAuthStatus();
     show(info);
   } catch (e) {
     show({ error: e.message });
@@ -523,3 +550,5 @@ document.getElementById("btnUpload").onclick = async () => {
     show({ error: e.message });
   }
 };
+
+refreshOpsAuthStatus();

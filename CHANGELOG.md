@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.4-alerting-hooks
+Date: 2026-03-06
+
+### Added
+- Phase 6 alerting hooks:
+  - Trust-score drop alert events from validation runs.
+  - High-severity schema drift alert events from drift scans.
+- Alerts API:
+  - `/alerts/recent?limit=50`
+- Alert persistence:
+  - `alert_events` table and migration `007_alerting.sql`.
+- Frontend ops-auth badge:
+  - Shows enabled/disabled/unreachable status based on `/ops/runtime`.
+
+### Quality
+- Integration tests for trust-drop and drift-high alert scenarios.
+
 ## v1.3-ops-observability
 Date: 2026-03-05
 

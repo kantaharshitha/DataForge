@@ -306,3 +306,15 @@ class RuntimeInfoResponse(BaseModel):
     is_vercel: bool
     db_path: str
     db_exists: bool
+
+
+class AlertEventResponse(BaseModel):
+    alert_id: str
+    alert_type: str
+    severity: str
+    title: str
+    message: str
+    context: dict = Field(default_factory=dict)
+    delivery_status: str
+    delivery_error: str | None = None
+    created_at: datetime

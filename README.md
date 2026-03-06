@@ -22,6 +22,10 @@ Why this change:
   - `vercel-ephemeral` (default on Vercel)
   - `persistent` (force project `db/` path if writable)
 - Optional ops API guard: set `DATAFORGE_OPS_API_KEY` and pass it via `x-api-key` for `/ops/*`.
+- Optional alert webhook:
+  - `DATAFORGE_ALERT_WEBHOOK_URL`
+  - `DATAFORGE_ALERT_TRUST_DROP` (default `10`)
+  - `DATAFORGE_ALERT_TRUST_FLOOR` (default `80`)
 
 ## Local Run (Recommended)
 1. Setup:
@@ -71,6 +75,7 @@ Before production verification, set these Vercel environment variables:
 - Lineage: `/lineage/build`, `/lineage/runs`, `/lineage/graph`, `/lineage/kpi/{kpi_code}`, `/lineage/dataset/{dataset_name}`
 - Validation/Trust: `/validation/run`, `/validation/runs`, `/validation/results/{validation_run_id}`, `/trust/latest`
 - KPI/Dashboard: `/kpi/seed`, `/kpi/registry`, `/kpi/run`, `/kpi/latest`, `/dashboard/executive`
+- Alerts: `/alerts/recent?limit=50`
 - Exports: `/exports/drift/{dataset_name}.csv`, `/exports/validation/{validation_run_id}.csv`, `/exports/lineage/{lineage_run_id}.json`
 - Export bundle: `/exports/run/{correlation_id}.zip`
 - Ops: `/ops/cleanup?keep_last_runs=20&keep_raw_files=200`

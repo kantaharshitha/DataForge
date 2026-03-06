@@ -202,3 +202,38 @@ def test_ops_endpoints_require_api_key_when_configured(
 
     authorized = client.get("/ops/runtime", headers={"x-api-key": "secret123"})
     assert authorized.status_code == 200
+
+
+def test_alerts_generated_for_trust_score_drop(client: TestClient) -> None:
+    products_ok = b"product_id,sku,unit_cost\nP001,SKU-1,10\nP002,SKU-2,12\n"
+    products_bad = b"product_id,sku,unit_cost\nP001,SKU-1,-10\nP002,SKU-2,-12\n"
+
+    assert client.post("/upload", files={"file": ("products.csv", products_ok, "text/csv")}).status_code == 200
+    assert client.post("/validation/run").status_code == 200
+
+    assert client.post("/upload", files={"file": ("products.csv", products_bad, "text/csv")}).status_code == 200
+    second = client.post("/validation/run")
+    assert second.status_code == 200
+    assert second.json()["trust_score"] < 100
+
+    alerts = client.get("/alerts/recent", params={"limit": 20})
+    assert alerts.status_code == 200
+    alert_types = {a["alert_type"] for a in alerts.json()}
+    assert "TRUST_SCORE_DROP" in alert_types or "TRUST_SCORE_LOW" in alert_types
+
+
+def test_alerts_generated_for_high_severity_drift(client: TestClient) -> None:
+    v1 = b"customer_id,customer_name,amount\nC001,Acme,10.0\n"
+    v2 = b"customer_id,amount\nC001,ten\n"
+
+    assert client.post("/upload", files={"file": ("customers.csv", v1, "text/csv")}).status_code == 200
+    assert client.post("/upload", files={"file": ("customers.csv", v2, "text/csv")}).status_code == 200
+    run = client.post("/drift/run", params={"dataset_name": "customers"})
+    assert run.status_code == 200
+
+    alerts = client.get("/alerts/recent", params={"limit": 20})
+    assert alerts.status_code == 200
+    high_drift = [
+        a for a in alerts.json() if a["alert_type"] == "DRIFT_HIGH_SEVERITY" and a["severity"] == "HIGH"
+    ]
+    assert len(high_drift) >= 1

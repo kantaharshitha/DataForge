@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+import os
 import uuid
 from datetime import datetime, timezone
 
 from app.db import get_conn
+from app.services.alerts import emit_alert
 
 DIMENSION_WEIGHTS = {
     "completeness": 0.30,
@@ -416,6 +418,15 @@ def run_validation() -> dict:
 
         all_rules.extend(_integrity_rules(conn, validation_run_id))
 
+        previous_row = conn.execute(
+            """
+            SELECT validation_run_id, trust_score
+            FROM validation_runs
+            ORDER BY started_at DESC
+            LIMIT 1
+            """
+        ).fetchone()
+
         dimension_scores, trust_score = compute_trust_score_from_rules(all_rules)
         status = "FAILED" if any(r["failed_records"] > 0 and r["severity"] in {"CRITICAL", "HIGH"} for r in all_rules) else "PASSED"
 
@@ -502,6 +513,40 @@ def run_validation() -> dict:
                 ),
                 ended_at,
             ],
+        )
+
+    # Phase 6 alert hook: trust-score regression and low absolute score.
+    drop_threshold = int(os.getenv("DATAFORGE_ALERT_TRUST_DROP", "10"))
+    score_floor = int(os.getenv("DATAFORGE_ALERT_TRUST_FLOOR", "80"))
+    if previous_row:
+        previous_run_id, previous_score = previous_row[0], int(previous_row[1])
+        score_drop = previous_score - trust_score
+        if score_drop >= drop_threshold:
+            emit_alert(
+                alert_type="TRUST_SCORE_DROP",
+                severity="HIGH",
+                title="Trust score dropped significantly",
+                message=f"Trust score dropped by {score_drop} points (from {previous_score} to {trust_score}).",
+                context={
+                    "previous_validation_run_id": previous_run_id,
+                    "current_validation_run_id": validation_run_id,
+                    "previous_score": previous_score,
+                    "current_score": trust_score,
+                    "drop_points": score_drop,
+                },
+            )
+
+    if trust_score < score_floor:
+        emit_alert(
+            alert_type="TRUST_SCORE_LOW",
+            severity="MEDIUM",
+            title="Trust score below configured floor",
+            message=f"Trust score is {trust_score}, below floor {score_floor}.",
+            context={
+                "validation_run_id": validation_run_id,
+                "trust_score": trust_score,
+                "score_floor": score_floor,
+            },
         )
 
     return {

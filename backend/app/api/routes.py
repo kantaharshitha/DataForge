@@ -14,6 +14,7 @@ from fastapi.responses import PlainTextResponse, Response
 
 from app.db import get_conn, get_runtime_info
 from app.models import (
+    AlertEventResponse,
     DatasetSummary,
     DriftEventResponse,
     DriftRunExecuteResponse,
@@ -41,6 +42,7 @@ from app.models import (
     ValidationRunResponse,
     ValidationRunSummaryResponse,
 )
+from app.services.alerts import list_recent_alerts
 from app.services.cleanup import run_cleanup
 from app.services.pipeline import run_pipeline_with_observability
 from app.services.drift import (
@@ -522,6 +524,11 @@ def export_pipeline_artifact_bundle(correlation_id: str) -> Response:
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{bundle_name}"'},
     )
+
+
+@router.get("/alerts/recent", response_model=list[AlertEventResponse])
+def get_recent_alerts(limit: int = 50) -> list[AlertEventResponse]:
+    return [AlertEventResponse(**row) for row in list_recent_alerts(limit=limit)]
 
 
 @router.post("/ops/cleanup", response_model=OpsCleanupResponse)

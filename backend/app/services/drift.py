@@ -7,6 +7,7 @@ import uuid
 from datetime import datetime, timezone
 
 from app.db import get_conn
+from app.services.alerts import emit_alert
 
 
 SEVERITY_BY_CHANGE = {
@@ -227,6 +228,20 @@ def run_schema_drift_scan(dataset_name: str | None = None) -> dict:
                 events=events,
             )
             run_summaries.append(summary)
+
+    # Phase 6 alert hook: high-severity drift.
+    for summary in run_summaries:
+        if int(summary.get("high_count", 0)) > 0:
+            emit_alert(
+                alert_type="DRIFT_HIGH_SEVERITY",
+                severity="HIGH",
+                title="High-severity schema drift detected",
+                message=(
+                    f"{summary['dataset_name']} drift run {summary['drift_run_id']} "
+                    f"contains {summary['high_count']} high-severity changes."
+                ),
+                context=summary,
+            )
 
     return {
         "run_count": len(run_summaries),
