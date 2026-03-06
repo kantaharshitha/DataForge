@@ -1,0 +1,32 @@
+name: Nightly Alert Escalation
+
+on:
+  schedule:
+    - cron: "45 2 * * *"
+  workflow_dispatch:
+
+jobs:
+  escalate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger alert escalation endpoint
+        env:
+          DATAFORGE_BASE_URL: ${{ secrets.DATAFORGE_BASE_URL }}
+          DATAFORGE_OPS_API_KEY: ${{ secrets.DATAFORGE_OPS_API_KEY }}
+          DATAFORGE_ESCALATION_MINUTES: ${{ secrets.DATAFORGE_ESCALATION_MINUTES }}
+        run: |
+          if [ -z "$DATAFORGE_BASE_URL" ]; then
+            echo "Missing DATAFORGE_BASE_URL secret"
+            exit 1
+          fi
+          if [ -z "$DATAFORGE_OPS_API_KEY" ]; then
+            echo "Missing DATAFORGE_OPS_API_KEY secret"
+            exit 1
+          fi
+
+          THRESHOLD="${DATAFORGE_ESCALATION_MINUTES:-60}"
+          URL="${DATAFORGE_BASE_URL%/}/ops/alerts/escalate/run?older_than_minutes=${THRESHOLD}&limit=200"
+          echo "Calling $URL"
+          curl --fail-with-body -sS -X POST \
+            -H "x-api-key: ${DATAFORGE_OPS_API_KEY}" \
+            "$URL"

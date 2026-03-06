@@ -20,6 +20,7 @@ from app.models import (
     AlertAcknowledgeResponse,
     AlertEventResponse,
     AlertEscalationRunResponse,
+    AlertSLAResponse,
     AlertSummaryResponse,
     DatasetSummary,
     DriftEventResponse,
@@ -53,6 +54,7 @@ from app.services.alerts import (
     assign_alert,
     list_recent_alerts,
     run_alert_escalation_scan,
+    summarize_alert_sla,
     summarize_alerts,
 )
 from app.services.cleanup import run_cleanup
@@ -546,6 +548,11 @@ def get_recent_alerts(limit: int = 50) -> list[AlertEventResponse]:
 @router.get("/alerts/summary", response_model=AlertSummaryResponse)
 def get_alerts_summary(window_hours: int = 24) -> AlertSummaryResponse:
     return AlertSummaryResponse(**summarize_alerts(window_hours=window_hours))
+
+
+@router.get("/alerts/sla", response_model=AlertSLAResponse)
+def get_alerts_sla(window_hours: int = 24) -> AlertSLAResponse:
+    return AlertSLAResponse(**summarize_alert_sla(window_hours=window_hours))
 
 
 @router.post("/alerts/acknowledge", response_model=AlertAcknowledgeResponse)

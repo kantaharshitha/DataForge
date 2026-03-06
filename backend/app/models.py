@@ -376,3 +376,11 @@ class AlertEscalationRunResponse(BaseModel):
     escalated_count: int
     older_than_minutes: int
     escalated: list[dict] = Field(default_factory=list)
+
+
+class AlertSLAResponse(BaseModel):
+    window_hours: int
+    open_high_alerts: int
+    mtta_minutes: float | None = None
+    escalations_in_window: int
+    escalations_per_day: float

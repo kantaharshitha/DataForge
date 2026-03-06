@@ -368,3 +368,31 @@ def test_alert_export_endpoints(client: TestClient) -> None:
     exported_acks = client.get("/exports/alerts_acknowledgements.csv", params={"limit": 50})
     assert exported_acks.status_code == 200
     assert "acknowledged_by" in exported_acks.text
+
+
+def test_alert_sla_endpoint(client: TestClient) -> None:
+    products_ok = b"product_id,sku,unit_cost\nP001,SKU-1,10\nP002,SKU-2,12\n"
+    products_bad = b"product_id,sku,unit_cost\nP001,SKU-1,-10\nP002,SKU-2,-12\n"
+    assert client.post("/upload", files={"file": ("products.csv", products_ok, "text/csv")}).status_code == 200
+    assert client.post("/validation/run").status_code == 200
+    assert client.post("/upload", files={"file": ("products.csv", products_bad, "text/csv")}).status_code == 200
+    assert client.post("/validation/run").status_code == 200
+
+    alerts = client.get("/alerts/recent", params={"limit": 20})
+    target = alerts.json()[0]
+    assert client.post(
+        "/alerts/acknowledge",
+        json={
+            "alert_id": target["alert_id"],
+            "acknowledged_by": "ops_admin",
+            "note": "sla-check",
+        },
+    ).status_code == 200
+
+    response = client.get("/alerts/sla", params={"window_hours": 24})
+    assert response.status_code == 200
+    payload = response.json()
+    assert "open_high_alerts" in payload
+    assert "mtta_minutes" in payload
+    assert "escalations_in_window" in payload
+    assert "escalations_per_day" in payload

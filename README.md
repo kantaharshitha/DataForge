@@ -79,6 +79,7 @@ Before production verification, set these Vercel environment variables:
 - KPI/Dashboard: `/kpi/seed`, `/kpi/registry`, `/kpi/run`, `/kpi/latest`, `/dashboard/executive`
 - Alerts: `/alerts/recent?limit=50`
 - Alerts summary: `/alerts/summary?window_hours=24`
+- Alerts SLA: `/alerts/sla?window_hours=24`
 - Alerts acknowledge: `POST /alerts/acknowledge`
 - Alerts assign: `POST /alerts/assign`
 - Exports: `/exports/drift/{dataset_name}.csv`, `/exports/validation/{validation_run_id}.csv`, `/exports/lineage/{lineage_run_id}.json`
@@ -115,6 +116,13 @@ Automated cleanup is also available with GitHub Actions:
   - `DATAFORGE_BASE_URL` (example: `https://your-app.vercel.app/api`)
   - `DATAFORGE_OPS_API_KEY`
 
+Automated escalation scan is available with GitHub Actions:
+- Workflow: `.github/workflows/nightly_alert_escalation.yml`
+- Required repository secrets:
+  - `DATAFORGE_BASE_URL`
+  - `DATAFORGE_OPS_API_KEY`
+  - Optional: `DATAFORGE_ESCALATION_MINUTES` (defaults to `60`)
+
 Deployment verification automation:
 ```powershell
 .\scripts\verify_deployment.ps1 -BaseUrl "https://your-app.vercel.app/api" -OpsApiKey "<DATAFORGE_OPS_API_KEY>"
@@ -143,6 +151,7 @@ $env:GITHUB_TOKEN="<token>"
 - Alerts panel with severity/delivery filters and pagination.
 - Alert acknowledgement workflow (ack by + note).
 - Alert assignment and manual escalation scan controls.
+- Alert SLA cards (open high alerts, MTTA, escalations/day).
 
 ## Operations
 - Runbook: `OPERATIONS.md`

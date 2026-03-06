@@ -30,6 +30,11 @@ Date: 2026-03-06
 - Alert audit exports:
   - `/exports/alerts.csv`
   - `/exports/alerts_acknowledgements.csv`
+- Alert SLA metrics:
+  - `/alerts/sla?window_hours=24`
+  - Frontend SLA cards for open high alerts, MTTA, and escalations/day.
+- Scheduled escalation workflow:
+  - `.github/workflows/nightly_alert_escalation.yml`
 
 ### Quality
 - Integration tests for trust-drop and drift-high alert scenarios.

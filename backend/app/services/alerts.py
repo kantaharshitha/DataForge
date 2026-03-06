@@ -275,6 +275,52 @@ def summarize_alerts(window_hours: int = 24) -> dict:
     }
 
 
+def summarize_alert_sla(window_hours: int = 24) -> dict:
+    safe_hours = max(1, min(720, int(window_hours)))
+    window_days = max(1.0, safe_hours / 24.0)
+
+    with get_conn() as conn:
+        open_high = conn.execute(
+            """
+            SELECT COUNT(*)
+            FROM alert_events e
+            LEFT JOIN alert_acknowledgements a ON e.alert_id = a.alert_id
+            WHERE e.severity = 'HIGH'
+              AND a.alert_id IS NULL
+            """
+        ).fetchone()[0]
+
+        mtta_minutes = conn.execute(
+            """
+            SELECT AVG(
+                EXTRACT(EPOCH FROM (a.acknowledged_at - e.created_at)) / 60.0
+            )
+            FROM alert_events e
+            JOIN alert_acknowledgements a ON e.alert_id = a.alert_id
+            WHERE e.created_at >= (CURRENT_TIMESTAMP - (? * INTERVAL '1 hour'))
+            """,
+            [safe_hours],
+        ).fetchone()[0]
+
+        escalations = conn.execute(
+            """
+            SELECT COUNT(*)
+            FROM alert_escalations
+            WHERE escalated_at >= (CURRENT_TIMESTAMP - (? * INTERVAL '1 hour'))
+            """,
+            [safe_hours],
+        ).fetchone()[0]
+
+    escalations_per_day = round(float(escalations) / window_days, 2)
+    return {
+        "window_hours": safe_hours,
+        "open_high_alerts": int(open_high),
+        "mtta_minutes": round(float(mtta_minutes), 2) if mtta_minutes is not None else None,
+        "escalations_in_window": int(escalations),
+        "escalations_per_day": escalations_per_day,
+    }
+
+
 def assign_alert(
     *,
     alert_id: str,
