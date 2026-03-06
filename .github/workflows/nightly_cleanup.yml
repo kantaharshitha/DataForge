@@ -1,0 +1,30 @@
+name: Nightly Cleanup
+
+on:
+  schedule:
+    - cron: "30 2 * * *"
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger DataForge cleanup endpoint
+        env:
+          DATAFORGE_BASE_URL: ${{ secrets.DATAFORGE_BASE_URL }}
+          DATAFORGE_OPS_API_KEY: ${{ secrets.DATAFORGE_OPS_API_KEY }}
+        run: |
+          if [ -z "$DATAFORGE_BASE_URL" ]; then
+            echo "Missing DATAFORGE_BASE_URL secret"
+            exit 1
+          fi
+          if [ -z "$DATAFORGE_OPS_API_KEY" ]; then
+            echo "Missing DATAFORGE_OPS_API_KEY secret"
+            exit 1
+          fi
+
+          URL="${DATAFORGE_BASE_URL%/}/ops/cleanup?keep_last_runs=20&keep_raw_files=200"
+          echo "Calling $URL"
+          curl --fail-with-body -sS -X POST \
+            -H "x-api-key: ${DATAFORGE_OPS_API_KEY}" \
+            "$URL"

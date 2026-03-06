@@ -60,6 +60,10 @@ Deploy:
 
 In production, frontend calls API via `/api/*` automatically.
 
+Before production verification, set these Vercel environment variables:
+- `DATAFORGE_RUNTIME_MODE=vercel-ephemeral`
+- `DATAFORGE_OPS_API_KEY=<strong-random-value>`
+
 ## API Endpoints
 - Upload/Profile: `/health`, `/upload`, `/datasets`, `/profiles/{dataset_id}`
 - Inference: `/inference/run`, `/inference/candidates`, `/inference/decide`
@@ -93,6 +97,12 @@ $env:PYTHONPATH="./backend"
 ```
 Use Windows Task Scheduler to run this command daily.
 
+Automated cleanup is also available with GitHub Actions:
+- Workflow: `.github/workflows/nightly_cleanup.yml`
+- Required repository secrets:
+  - `DATAFORGE_BASE_URL` (example: `https://your-app.vercel.app/api`)
+  - `DATAFORGE_OPS_API_KEY`
+
 ## Frontend Explorer Features
 - Drift explorer with severity filter and pagination.
 - Lineage explorer with edge-type filter and pagination.
@@ -102,3 +112,7 @@ Use Windows Task Scheduler to run this command daily.
 - Vercel deployment warning banner when running on `*.vercel.app`.
 - Pipeline observability response with correlation ID and stage-level durations.
 - Runtime diagnostics and DB-path visibility from `/ops/runtime`.
+
+## Operations
+- Runbook: `OPERATIONS.md`
+- Environment template: `.env.example`
