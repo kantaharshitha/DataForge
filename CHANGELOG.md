@@ -11,11 +11,16 @@ Date: 2026-03-06
   - `/alerts/recent?limit=50`
 - Alert persistence:
   - `alert_events` table and migration `007_alerting.sql`.
+- Alert dedup/rate-limit:
+  - Suppresses duplicate alerts by `alert_type + dataset` within configurable window.
 - Frontend ops-auth badge:
   - Shows enabled/disabled/unreachable status based on `/ops/runtime`.
+- Frontend alerts panel:
+  - Recent alerts table with severity/delivery filters and pagination.
 
 ### Quality
 - Integration tests for trust-drop and drift-high alert scenarios.
+- Unit tests for alert webhook paths (`SKIPPED`, `DELIVERED`, `FAILED`) and dedup behavior.
 
 ## v1.3-ops-observability
 Date: 2026-03-05

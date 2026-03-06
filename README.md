@@ -26,6 +26,7 @@ Why this change:
   - `DATAFORGE_ALERT_WEBHOOK_URL`
   - `DATAFORGE_ALERT_TRUST_DROP` (default `10`)
   - `DATAFORGE_ALERT_TRUST_FLOOR` (default `80`)
+  - `DATAFORGE_ALERT_DEDUP_MINUTES` (default `30`)
 
 ## Local Run (Recommended)
 1. Setup:
@@ -128,6 +129,7 @@ $env:GITHUB_TOKEN="<token>"
 - Vercel deployment warning banner when running on `*.vercel.app`.
 - Pipeline observability response with correlation ID and stage-level durations.
 - Runtime diagnostics and DB-path visibility from `/ops/runtime`.
+- Alerts panel with severity/delivery filters and pagination.
 
 ## Operations
 - Runbook: `OPERATIONS.md`

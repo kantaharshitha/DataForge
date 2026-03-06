@@ -22,6 +22,8 @@ let driftPage = 1;
 let lineageGraphAll = { nodes: [], edges: [] };
 let lineagePage = 1;
 let pipelineLastRun = null;
+let alertsAll = [];
+let alertsPage = 1;
 
 function apiBase() {
   return document.getElementById("apiBase").value.replace(/\/$/, "");
@@ -197,6 +199,39 @@ function renderPipelineObservability(payload = pipelineLastRun) {
   if (corrInput) corrInput.value = payload.correlation_id || "";
 }
 
+function filteredAlerts() {
+  const severity = document.getElementById("alertSeverity").value;
+  const delivery = document.getElementById("alertDelivery").value;
+  return alertsAll.filter((a) => {
+    const severityOk = severity === "ALL" || a.severity === severity;
+    const deliveryOk = delivery === "ALL" || a.delivery_status === delivery;
+    return severityOk && deliveryOk;
+  });
+}
+
+function renderAlerts() {
+  const filtered = filteredAlerts();
+  const paging = paginate(filtered, alertsPage);
+  alertsPage = paging.page;
+
+  const tbody = document.querySelector("#alertsTable tbody");
+  tbody.innerHTML = "";
+  for (const alert of paging.pageItems) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${alert.created_at ?? ""}</td>
+      <td>${alert.alert_type ?? ""}</td>
+      <td>${alert.severity ?? ""}</td>
+      <td>${alert.delivery_status ?? ""}</td>
+      <td>${alert.message ?? ""}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  document.getElementById("alertsPageInfo").textContent =
+    `Page ${paging.page}/${paging.totalPages} (${paging.totalItems} alerts)`;
+}
+
 async function copyCorrelationId() {
   if (!pipelineLastRun || !pipelineLastRun.correlation_id) {
     show({ error: "No pipeline correlation ID available." });
@@ -332,6 +367,17 @@ document.getElementById("btnRunKpi").onclick = async () => {
 
 document.getElementById("btnDashboard").onclick = async () => {
   try { show(await callApi("/dashboard/executive")); } catch (e) { show({ error: e.message }); }
+};
+
+document.getElementById("btnAlerts").onclick = async () => {
+  try {
+    alertsAll = await callApi("/alerts/recent?limit=200");
+    alertsPage = 1;
+    renderAlerts();
+    show(alertsAll);
+  } catch (e) {
+    show({ error: e.message });
+  }
 };
 
 document.getElementById("btnDriftRuns").onclick = async () => {
@@ -549,6 +595,26 @@ document.getElementById("btnUpload").onclick = async () => {
     uploadMsg.className = "status bad";
     show({ error: e.message });
   }
+};
+
+document.getElementById("alertSeverity").onchange = () => {
+  alertsPage = 1;
+  renderAlerts();
+};
+
+document.getElementById("alertDelivery").onchange = () => {
+  alertsPage = 1;
+  renderAlerts();
+};
+
+document.getElementById("btnAlertsPrev").onclick = () => {
+  alertsPage = Math.max(1, alertsPage - 1);
+  renderAlerts();
+};
+
+document.getElementById("btnAlertsNext").onclick = () => {
+  alertsPage += 1;
+  renderAlerts();
 };
 
 refreshOpsAuthStatus();

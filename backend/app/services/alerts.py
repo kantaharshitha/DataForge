@@ -16,6 +16,53 @@ def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _parse_ts(value) -> datetime:
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    text = str(value).replace("Z", "+00:00")
+    parsed = datetime.fromisoformat(text)
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
+def _dataset_key_from_context(context: dict) -> str:
+    for key in ("dataset_name", "dataset"):
+        value = context.get(key)
+        if value:
+            return str(value)
+    return "__global__"
+
+
+def _is_duplicate_alert(alert_type: str, context: dict, dedup_minutes: int) -> bool:
+    if dedup_minutes <= 0:
+        return False
+
+    now = datetime.now(timezone.utc)
+    window_seconds = dedup_minutes * 60
+    dataset_key = _dataset_key_from_context(context)
+
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT context_json, created_at
+            FROM alert_events
+            WHERE alert_type = ?
+            ORDER BY created_at DESC
+            LIMIT 200
+            """,
+            [alert_type],
+        ).fetchall()
+
+    for row in rows:
+        ctx = json.loads(row[0]) if row[0] else {}
+        created_at = _parse_ts(row[1])
+        age_seconds = (now - created_at).total_seconds()
+        if age_seconds > window_seconds:
+            continue
+        if _dataset_key_from_context(ctx) == dataset_key:
+            return True
+    return False
+
+
 def _deliver_webhook(payload: dict) -> tuple[str, str | None]:
     webhook_url = os.getenv("DATAFORGE_ALERT_WEBHOOK_URL", "").strip()
     if not webhook_url:
@@ -45,6 +92,7 @@ def emit_alert(
     alert_id = str(uuid.uuid4())
     created_at = _utc_now_iso()
     context_payload = context or {}
+    dedup_minutes = int(os.getenv("DATAFORGE_ALERT_DEDUP_MINUTES", "30"))
     outbound_payload = {
         "alert_id": alert_id,
         "alert_type": alert_type,
@@ -54,7 +102,10 @@ def emit_alert(
         "context": context_payload,
         "created_at": created_at,
     }
-    delivery_status, delivery_error = _deliver_webhook(outbound_payload)
+    if _is_duplicate_alert(alert_type, context_payload, dedup_minutes):
+        delivery_status, delivery_error = "DEDUPED", "Suppressed duplicate alert within dedup window."
+    else:
+        delivery_status, delivery_error = _deliver_webhook(outbound_payload)
 
     with get_conn() as conn:
         conn.execute(

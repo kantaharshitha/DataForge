@@ -99,6 +99,7 @@
       <button id="btnSeedKpi">Seed KPIs</button>
       <button id="btnRunKpi" class="primary">Run KPIs</button>
       <button id="btnDashboard">Executive Dashboard</button>
+      <button id="btnAlerts">Load Alerts</button>
     </div>
 
     <div class="panel">
@@ -229,6 +230,46 @@
               <th>Edge Type</th>
               <th>From</th>
               <th>To</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Alerts</h3>
+      <div class="row">
+        <label for="alertSeverity">Severity</label>
+        <select id="alertSeverity" style="padding:6px;border:1px solid #d9e1ee;border-radius:6px;min-width:140px">
+          <option value="ALL">ALL</option>
+          <option value="HIGH">HIGH</option>
+          <option value="MEDIUM">MEDIUM</option>
+          <option value="LOW">LOW</option>
+        </select>
+        <label for="alertDelivery">Delivery</label>
+        <select id="alertDelivery" style="padding:6px;border:1px solid #d9e1ee;border-radius:6px;min-width:160px">
+          <option value="ALL">ALL</option>
+          <option value="DELIVERED">DELIVERED</option>
+          <option value="SKIPPED">SKIPPED</option>
+          <option value="FAILED">FAILED</option>
+          <option value="DEDUPED">DEDUPED</option>
+        </select>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button id="btnAlertsPrev">Prev</button>
+        <span id="alertsPageInfo" style="color:#5b6472"></span>
+        <button id="btnAlertsNext">Next</button>
+      </div>
+      <div style="margin-top:8px; overflow:auto;">
+        <table id="alertsTable">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Type</th>
+              <th>Severity</th>
+              <th>Delivery</th>
+              <th>Message</th>
             </tr>
           </thead>
           <tbody></tbody>
