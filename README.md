@@ -27,6 +27,7 @@ Why this change:
   - `DATAFORGE_ALERT_TRUST_DROP` (default `10`)
   - `DATAFORGE_ALERT_TRUST_FLOOR` (default `80`)
   - `DATAFORGE_ALERT_DEDUP_MINUTES` (default `30`)
+  - `DATAFORGE_ESCALATION_MINUTES` (default `60`)
 
 ## Local Run (Recommended)
 1. Setup:
@@ -79,11 +80,14 @@ Before production verification, set these Vercel environment variables:
 - Alerts: `/alerts/recent?limit=50`
 - Alerts summary: `/alerts/summary?window_hours=24`
 - Alerts acknowledge: `POST /alerts/acknowledge`
+- Alerts assign: `POST /alerts/assign`
 - Exports: `/exports/drift/{dataset_name}.csv`, `/exports/validation/{validation_run_id}.csv`, `/exports/lineage/{lineage_run_id}.json`
 - Export bundle: `/exports/run/{correlation_id}.zip`
+- Alert exports: `/exports/alerts.csv`, `/exports/alerts_acknowledgements.csv`
 - Ops: `/ops/cleanup?keep_last_runs=20&keep_raw_files=200`
 - Ops pipeline observability: `/ops/pipeline/run?auto_accept_inference=true`
 - Ops runtime diagnostics: `/ops/runtime`
+- Ops alerts escalation: `/ops/alerts/escalate/run?older_than_minutes=60&limit=50`
 
 ## Validation and Smoke Tests
 Run all tests:
@@ -133,6 +137,7 @@ $env:GITHUB_TOKEN="<token>"
 - Runtime diagnostics and DB-path visibility from `/ops/runtime`.
 - Alerts panel with severity/delivery filters and pagination.
 - Alert acknowledgement workflow (ack by + note).
+- Alert assignment and manual escalation scan controls.
 
 ## Operations
 - Runbook: `OPERATIONS.md`

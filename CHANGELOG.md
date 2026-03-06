@@ -23,6 +23,13 @@ Date: 2026-03-06
 - Alert acknowledgement:
   - `POST /alerts/acknowledge`
   - `alert_acknowledgements` storage with acknowledged_by and note.
+- Alert assignment + escalation:
+  - `POST /alerts/assign`
+  - `POST /ops/alerts/escalate/run`
+  - `alert_assignments` and `alert_escalations` storage.
+- Alert audit exports:
+  - `/exports/alerts.csv`
+  - `/exports/alerts_acknowledgements.csv`
 
 ### Quality
 - Integration tests for trust-drop and drift-high alert scenarios.

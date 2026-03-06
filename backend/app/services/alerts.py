@@ -25,6 +25,9 @@ def _parse_ts(value) -> datetime:
 
 
 def _dataset_key_from_context(context: dict) -> str:
+    source_alert_id = context.get("source_alert_id")
+    if source_alert_id:
+        return f"alert:{source_alert_id}"
     for key in ("dataset_name", "dataset"):
         value = context.get(key)
         if value:
@@ -148,9 +151,11 @@ def list_recent_alerts(limit: int = 50) -> list[dict]:
             """
             SELECT e.alert_id, e.alert_type, e.severity, e.title, e.message, e.context_json,
                    e.delivery_status, e.delivery_error, e.created_at,
-                   a.ack_id, a.acknowledged_by, a.note, a.acknowledged_at
+                   a.ack_id, a.acknowledged_by, a.note, a.acknowledged_at,
+                   s.assignment_id, s.assigned_to, s.assigned_by, s.priority, s.due_by, s.assigned_at
             FROM alert_events e
             LEFT JOIN alert_acknowledgements a ON e.alert_id = a.alert_id
+            LEFT JOIN alert_assignments s ON e.alert_id = s.alert_id
             ORDER BY created_at DESC
             LIMIT ?
             """,
@@ -172,6 +177,12 @@ def list_recent_alerts(limit: int = 50) -> list[dict]:
             "acknowledged_by": row[10],
             "ack_note": row[11],
             "acknowledged_at": row[12],
+            "is_assigned": bool(row[13]),
+            "assigned_to": row[14],
+            "assigned_by": row[15],
+            "assignment_priority": row[16],
+            "assignment_due_by": row[17],
+            "assigned_at": row[18],
         }
         for row in rows
     ]
@@ -261,4 +272,142 @@ def summarize_alerts(window_hours: int = 24) -> dict:
         "by_severity": {row[0]: int(row[1]) for row in severity_rows},
         "by_delivery_status": {row[0]: int(row[1]) for row in delivery_rows},
         "by_alert_type": {row[0]: int(row[1]) for row in type_rows},
+    }
+
+
+def assign_alert(
+    *,
+    alert_id: str,
+    assigned_to: str,
+    assigned_by: str,
+    priority: str = "MEDIUM",
+    due_by: str | None = None,
+) -> dict:
+    if not alert_id.strip():
+        raise ValueError("alert_id is required.")
+    if not assigned_to.strip():
+        raise ValueError("assigned_to is required.")
+    if not assigned_by.strip():
+        raise ValueError("assigned_by is required.")
+
+    normalized_priority = priority.strip().upper()
+    if normalized_priority not in {"LOW", "MEDIUM", "HIGH", "CRITICAL"}:
+        raise ValueError("priority must be LOW, MEDIUM, HIGH, or CRITICAL.")
+
+    assignment_id = str(uuid.uuid4())
+    assigned_at = _utc_now_iso()
+    with get_conn() as conn:
+        exists = conn.execute(
+            "SELECT alert_id FROM alert_events WHERE alert_id = ?",
+            [alert_id],
+        ).fetchone()
+        if not exists:
+            raise ValueError("Alert not found.")
+
+        conn.execute("DELETE FROM alert_assignments WHERE alert_id = ?", [alert_id])
+        conn.execute(
+            """
+            INSERT INTO alert_assignments (
+                assignment_id, alert_id, assigned_to, assigned_by, priority, due_by, assigned_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                assignment_id,
+                alert_id,
+                assigned_to.strip(),
+                assigned_by.strip(),
+                normalized_priority,
+                due_by,
+                assigned_at,
+            ],
+        )
+
+    return {
+        "assignment_id": assignment_id,
+        "alert_id": alert_id,
+        "assigned_to": assigned_to.strip(),
+        "assigned_by": assigned_by.strip(),
+        "priority": normalized_priority,
+        "due_by": due_by,
+        "assigned_at": assigned_at,
+    }
+
+
+def run_alert_escalation_scan(older_than_minutes: int = 60, limit: int = 50) -> dict:
+    effective_default = int(os.getenv("DATAFORGE_ESCALATION_MINUTES", "60"))
+    candidate = effective_default if int(older_than_minutes) == 60 else int(older_than_minutes)
+    min_age = max(1, candidate)
+    scan_limit = max(1, min(500, int(limit)))
+    now = datetime.now(timezone.utc)
+
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT e.alert_id, e.alert_type, e.severity, e.message, e.context_json, e.created_at
+            FROM alert_events e
+            LEFT JOIN alert_acknowledgements a ON e.alert_id = a.alert_id
+            LEFT JOIN alert_escalations esc ON e.alert_id = esc.alert_id
+            WHERE e.severity = 'HIGH'
+              AND a.alert_id IS NULL
+              AND esc.alert_id IS NULL
+            ORDER BY e.created_at ASC
+            LIMIT ?
+            """,
+            [scan_limit],
+        ).fetchall()
+
+    escalated: list[dict] = []
+    for row in rows:
+        source_alert_id = row[0]
+        source_context = json.loads(row[4]) if row[4] else {}
+        created_at = _parse_ts(row[5])
+        age_minutes = int((now - created_at).total_seconds() // 60)
+        if age_minutes < min_age:
+            continue
+
+        emitted = emit_alert(
+            alert_type="ALERT_ESCALATED",
+            severity="HIGH",
+            title="Unacknowledged high-severity alert escalated",
+            message=f"Alert {source_alert_id} remained unacknowledged for {age_minutes} minutes.",
+            context={
+                "source_alert_id": source_alert_id,
+                "source_alert_type": row[1],
+                "source_message": row[3],
+                "source_created_at": str(row[5]),
+                "source_context": source_context,
+                "age_minutes": age_minutes,
+            },
+        )
+
+        with get_conn() as conn:
+            conn.execute(
+                """
+                INSERT INTO alert_escalations (
+                    escalation_id, alert_id, emitted_alert_id, reason, source_age_minutes, escalated_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    str(uuid.uuid4()),
+                    source_alert_id,
+                    emitted["alert_id"],
+                    "unacknowledged_high_alert",
+                    age_minutes,
+                    _utc_now_iso(),
+                ],
+            )
+
+        escalated.append(
+            {
+                "source_alert_id": source_alert_id,
+                "emitted_alert_id": emitted["alert_id"],
+                "age_minutes": age_minutes,
+            }
+        )
+
+    return {
+        "scanned": len(rows),
+        "escalated_count": len(escalated),
+        "older_than_minutes": min_age,
+        "escalated": escalated,
     }

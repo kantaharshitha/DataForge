@@ -100,6 +100,8 @@
       <button id="btnRunKpi" class="primary">Run KPIs</button>
       <button id="btnDashboard">Executive Dashboard</button>
       <button id="btnAlerts">Load Alerts</button>
+      <button id="btnAlertsExport">Export Alerts CSV</button>
+      <button id="btnAckExport">Export Acknowledgements CSV</button>
     </div>
 
     <div class="panel">
@@ -267,6 +269,27 @@
         <button id="btnAcknowledgeAlert">Acknowledge Alert</button>
       </div>
       <div class="row" style="margin-top:8px">
+        <label for="assignAlertId">Assign Alert ID</label>
+        <input id="assignAlertId" type="text" value="" placeholder="paste alert id" style="width:240px;padding:6px;border:1px solid #d9e1ee;border-radius:6px" />
+        <label for="assignTo">Assign To</label>
+        <input id="assignTo" type="text" value="oncall_analyst" style="width:140px;padding:6px;border:1px solid #d9e1ee;border-radius:6px" />
+        <label for="assignBy">Assign By</label>
+        <input id="assignBy" type="text" value="ops_admin" style="width:120px;padding:6px;border:1px solid #d9e1ee;border-radius:6px" />
+        <label for="assignPriority">Priority</label>
+        <select id="assignPriority" style="padding:6px;border:1px solid #d9e1ee;border-radius:6px;min-width:120px">
+          <option value="MEDIUM">MEDIUM</option>
+          <option value="HIGH">HIGH</option>
+          <option value="CRITICAL">CRITICAL</option>
+          <option value="LOW">LOW</option>
+        </select>
+        <button id="btnAssignAlert">Assign Alert</button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <label for="escalateMinutes">Escalate If Older Than (min)</label>
+        <input id="escalateMinutes" type="number" value="60" min="1" style="width:90px;padding:6px;border:1px solid #d9e1ee;border-radius:6px" />
+        <button id="btnRunEscalation">Run Escalation Scan</button>
+      </div>
+      <div class="row" style="margin-top:8px">
         <span id="alertsSummaryText" style="color:#5b6472"></span>
       </div>
       <div class="row" style="margin-top:8px">
@@ -283,6 +306,7 @@
               <th>Severity</th>
               <th>Delivery</th>
               <th>Ack</th>
+              <th>Assigned</th>
               <th>Message</th>
             </tr>
           </thead>

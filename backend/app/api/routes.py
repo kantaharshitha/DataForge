@@ -14,9 +14,12 @@ from fastapi.responses import PlainTextResponse, Response
 
 from app.db import get_conn, get_runtime_info
 from app.models import (
+    AlertAssignRequest,
+    AlertAssignResponse,
     AlertAcknowledgeRequest,
     AlertAcknowledgeResponse,
     AlertEventResponse,
+    AlertEscalationRunResponse,
     AlertSummaryResponse,
     DatasetSummary,
     DriftEventResponse,
@@ -45,7 +48,13 @@ from app.models import (
     ValidationRunResponse,
     ValidationRunSummaryResponse,
 )
-from app.services.alerts import acknowledge_alert, list_recent_alerts, summarize_alerts
+from app.services.alerts import (
+    acknowledge_alert,
+    assign_alert,
+    list_recent_alerts,
+    run_alert_escalation_scan,
+    summarize_alerts,
+)
 from app.services.cleanup import run_cleanup
 from app.services.pipeline import run_pipeline_with_observability
 from app.services.drift import (
@@ -551,6 +560,108 @@ def post_acknowledge_alert(request: AlertAcknowledgeRequest) -> AlertAcknowledge
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/alerts/assign", response_model=AlertAssignResponse)
+def post_assign_alert(request: AlertAssignRequest) -> AlertAssignResponse:
+    try:
+        return AlertAssignResponse(
+            **assign_alert(
+                alert_id=request.alert_id,
+                assigned_to=request.assigned_to,
+                assigned_by=request.assigned_by,
+                priority=request.priority,
+                due_by=request.due_by,
+            )
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/ops/alerts/escalate/run", response_model=AlertEscalationRunResponse)
+def post_alert_escalation_run(
+    older_than_minutes: int = 60,
+    limit: int = 50,
+    _: None = Depends(require_ops_api_key),
+) -> AlertEscalationRunResponse:
+    return AlertEscalationRunResponse(
+        **run_alert_escalation_scan(older_than_minutes=older_than_minutes, limit=limit)
+    )
+
+
+@router.get("/exports/alerts.csv", response_class=PlainTextResponse)
+def export_alerts_csv(limit: int = 1000) -> PlainTextResponse:
+    rows = list_recent_alerts(limit=limit)
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(
+        [
+            "alert_id",
+            "alert_type",
+            "severity",
+            "title",
+            "message",
+            "delivery_status",
+            "is_acknowledged",
+            "acknowledged_by",
+            "ack_note",
+            "acknowledged_at",
+            "is_assigned",
+            "assigned_to",
+            "assigned_by",
+            "assignment_priority",
+            "assignment_due_by",
+            "assigned_at",
+            "created_at",
+        ]
+    )
+    for row in rows:
+        writer.writerow(
+            [
+                row.get("alert_id", ""),
+                row.get("alert_type", ""),
+                row.get("severity", ""),
+                row.get("title", ""),
+                row.get("message", ""),
+                row.get("delivery_status", ""),
+                row.get("is_acknowledged", False),
+                row.get("acknowledged_by", ""),
+                row.get("ack_note", ""),
+                row.get("acknowledged_at", ""),
+                row.get("is_assigned", False),
+                row.get("assigned_to", ""),
+                row.get("assigned_by", ""),
+                row.get("assignment_priority", ""),
+                row.get("assignment_due_by", ""),
+                row.get("assigned_at", ""),
+                row.get("created_at", ""),
+            ]
+        )
+    return PlainTextResponse(
+        content=output.getvalue(),
+        headers={"Content-Disposition": 'attachment; filename="alerts.csv"'},
+    )
+
+
+@router.get("/exports/alerts_acknowledgements.csv", response_class=PlainTextResponse)
+def export_alert_acknowledgements_csv(limit: int = 1000) -> PlainTextResponse:
+    rows = [r for r in list_recent_alerts(limit=limit) if r.get("is_acknowledged")]
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["alert_id", "acknowledged_by", "ack_note", "acknowledged_at"])
+    for row in rows:
+        writer.writerow(
+            [
+                row.get("alert_id", ""),
+                row.get("acknowledged_by", ""),
+                row.get("ack_note", ""),
+                row.get("acknowledged_at", ""),
+            ]
+        )
+    return PlainTextResponse(
+        content=output.getvalue(),
+        headers={"Content-Disposition": 'attachment; filename="alerts_acknowledgements.csv"'},
+    )
 
 
 @router.post("/ops/cleanup", response_model=OpsCleanupResponse)

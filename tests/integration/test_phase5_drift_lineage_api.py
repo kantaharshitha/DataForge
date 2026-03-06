@@ -289,3 +289,82 @@ def test_alert_acknowledgement_endpoint(client: TestClient) -> None:
     match = [a for a in refreshed.json() if a["alert_id"] == target["alert_id"]][0]
     assert match["is_acknowledged"] is True
     assert match["acknowledged_by"] == "ops_admin"
+
+
+def test_alert_assignment_endpoint(client: TestClient) -> None:
+    products_ok = b"product_id,sku,unit_cost\nP001,SKU-1,10\nP002,SKU-2,12\n"
+    products_bad = b"product_id,sku,unit_cost\nP001,SKU-1,-10\nP002,SKU-2,-12\n"
+    assert client.post("/upload", files={"file": ("products.csv", products_ok, "text/csv")}).status_code == 200
+    assert client.post("/validation/run").status_code == 200
+    assert client.post("/upload", files={"file": ("products.csv", products_bad, "text/csv")}).status_code == 200
+    assert client.post("/validation/run").status_code == 200
+
+    alerts = client.get("/alerts/recent", params={"limit": 20})
+    target = alerts.json()[0]
+
+    assigned = client.post(
+        "/alerts/assign",
+        json={
+            "alert_id": target["alert_id"],
+            "assigned_to": "oncall_analyst",
+            "assigned_by": "ops_admin",
+            "priority": "HIGH",
+        },
+    )
+    assert assigned.status_code == 200
+    assigned_body = assigned.json()
+    assert assigned_body["assigned_to"] == "oncall_analyst"
+    assert assigned_body["priority"] == "HIGH"
+
+    refreshed = client.get("/alerts/recent", params={"limit": 20})
+    match = [a for a in refreshed.json() if a["alert_id"] == target["alert_id"]][0]
+    assert match["is_assigned"] is True
+    assert match["assigned_to"] == "oncall_analyst"
+
+
+def test_alert_escalation_scan_endpoint(client: TestClient) -> None:
+    products_ok = b"product_id,sku,unit_cost\nP001,SKU-1,10\nP002,SKU-2,12\n"
+    products_bad = b"product_id,sku,unit_cost\nP001,SKU-1,-10\nP002,SKU-2,-12\n"
+    assert client.post("/upload", files={"file": ("products.csv", products_ok, "text/csv")}).status_code == 200
+    assert client.post("/validation/run").status_code == 200
+    assert client.post("/upload", files={"file": ("products.csv", products_bad, "text/csv")}).status_code == 200
+    assert client.post("/validation/run").status_code == 200
+
+    run = client.post("/ops/alerts/escalate/run", params={"older_than_minutes": 1, "limit": 200})
+    assert run.status_code == 200
+    payload = run.json()
+    assert payload["scanned"] >= payload["escalated_count"]
+
+    alerts = client.get("/alerts/recent", params={"limit": 200})
+    assert alerts.status_code == 200
+    alert_types = {a["alert_type"] for a in alerts.json()}
+    assert "ALERT_ESCALATED" in alert_types or payload["escalated_count"] == 0
+
+
+def test_alert_export_endpoints(client: TestClient) -> None:
+    products_ok = b"product_id,sku,unit_cost\nP001,SKU-1,10\nP002,SKU-2,12\n"
+    products_bad = b"product_id,sku,unit_cost\nP001,SKU-1,-10\nP002,SKU-2,-12\n"
+    assert client.post("/upload", files={"file": ("products.csv", products_ok, "text/csv")}).status_code == 200
+    assert client.post("/validation/run").status_code == 200
+    assert client.post("/upload", files={"file": ("products.csv", products_bad, "text/csv")}).status_code == 200
+    assert client.post("/validation/run").status_code == 200
+
+    alerts = client.get("/alerts/recent", params={"limit": 10})
+    target = alerts.json()[0]
+    assert client.post(
+        "/alerts/acknowledge",
+        json={
+            "alert_id": target["alert_id"],
+            "acknowledged_by": "ops_admin",
+            "note": "export-check",
+        },
+    ).status_code == 200
+
+    exported_alerts = client.get("/exports/alerts.csv", params={"limit": 50})
+    assert exported_alerts.status_code == 200
+    assert "alert_id" in exported_alerts.text
+    assert "delivery_status" in exported_alerts.text
+
+    exported_acks = client.get("/exports/alerts_acknowledgements.csv", params={"limit": 50})
+    assert exported_acks.status_code == 200
+    assert "acknowledged_by" in exported_acks.text

@@ -220,12 +220,14 @@ function renderAlerts() {
   for (const alert of paging.pageItems) {
     const tr = document.createElement("tr");
     const ack = alert.is_acknowledged ? `YES (${alert.acknowledged_by || "unknown"})` : "NO";
+    const assignment = alert.is_assigned ? `${alert.assigned_to || "unknown"} (${alert.assignment_priority || ""})` : "NO";
     tr.innerHTML = `
       <td>${alert.created_at ?? ""}</td>
       <td>${alert.alert_type ?? ""}</td>
       <td>${alert.severity ?? ""}</td>
       <td>${alert.delivery_status ?? ""}</td>
       <td>${ack}</td>
+      <td>${assignment}</td>
       <td>${alert.message ?? ""}</td>
     `;
     tbody.appendChild(tr);
@@ -396,6 +398,22 @@ document.getElementById("btnAlerts").onclick = async () => {
   }
 };
 
+document.getElementById("btnAlertsExport").onclick = async () => {
+  try {
+    await downloadFromApi("/exports/alerts.csv?limit=2000", "alerts.csv");
+  } catch (e) {
+    show({ error: e.message });
+  }
+};
+
+document.getElementById("btnAckExport").onclick = async () => {
+  try {
+    await downloadFromApi("/exports/alerts_acknowledgements.csv?limit=2000", "alerts_acknowledgements.csv");
+  } catch (e) {
+    show({ error: e.message });
+  }
+};
+
 document.getElementById("btnAlertsSummary").onclick = async () => {
   try {
     alertsSummary = await callApi("/alerts/summary?window_hours=24");
@@ -426,6 +444,50 @@ document.getElementById("btnAcknowledgeAlert").onclick = async () => {
     });
     alertsAll = await callApi("/alerts/recent?limit=200");
     renderAlerts();
+    show(result);
+  } catch (e) {
+    show({ error: e.message });
+  }
+};
+
+document.getElementById("btnAssignAlert").onclick = async () => {
+  const alertId = document.getElementById("assignAlertId").value.trim();
+  const assignedTo = document.getElementById("assignTo").value.trim();
+  const assignedBy = document.getElementById("assignBy").value.trim();
+  const priority = document.getElementById("assignPriority").value;
+  if (!alertId || !assignedTo || !assignedBy) {
+    show({ error: "alert_id, assigned_to and assigned_by are required." });
+    return;
+  }
+  try {
+    const result = await callApi("/alerts/assign", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        alert_id: alertId,
+        assigned_to: assignedTo,
+        assigned_by: assignedBy,
+        priority,
+      }),
+    });
+    alertsAll = await callApi("/alerts/recent?limit=200");
+    renderAlerts();
+    show(result);
+  } catch (e) {
+    show({ error: e.message });
+  }
+};
+
+document.getElementById("btnRunEscalation").onclick = async () => {
+  const olderThan = Number(document.getElementById("escalateMinutes").value || "60");
+  try {
+    const result = await callApi(`/ops/alerts/escalate/run?older_than_minutes=${encodeURIComponent(olderThan)}&limit=100`, {
+      method: "POST",
+    });
+    alertsAll = await callApi("/alerts/recent?limit=200");
+    alertsSummary = await callApi("/alerts/summary?window_hours=24");
+    renderAlerts();
+    renderAlertsSummary();
     show(result);
   } catch (e) {
     show({ error: e.message });

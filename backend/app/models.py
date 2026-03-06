@@ -322,6 +322,12 @@ class AlertEventResponse(BaseModel):
     acknowledged_by: str | None = None
     ack_note: str | None = None
     acknowledged_at: datetime | None = None
+    is_assigned: bool = False
+    assigned_to: str | None = None
+    assigned_by: str | None = None
+    assignment_priority: str | None = None
+    assignment_due_by: datetime | None = None
+    assigned_at: datetime | None = None
 
 
 class AlertSummaryResponse(BaseModel):
@@ -345,3 +351,28 @@ class AlertAcknowledgeResponse(BaseModel):
     acknowledged_by: str
     note: str | None = None
     acknowledged_at: datetime
+
+
+class AlertAssignRequest(BaseModel):
+    alert_id: str
+    assigned_to: str
+    assigned_by: str
+    priority: str = "MEDIUM"
+    due_by: str | None = None
+
+
+class AlertAssignResponse(BaseModel):
+    assignment_id: str
+    alert_id: str
+    assigned_to: str
+    assigned_by: str
+    priority: str
+    due_by: str | None = None
+    assigned_at: datetime
+
+
+class AlertEscalationRunResponse(BaseModel):
+    scanned: int
+    escalated_count: int
+    older_than_minutes: int
+    escalated: list[dict] = Field(default_factory=list)
