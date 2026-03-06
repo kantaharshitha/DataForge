@@ -169,3 +169,54 @@ def list_recent_alerts(limit: int = 50) -> list[dict]:
         }
         for row in rows
     ]
+
+
+def summarize_alerts(window_hours: int = 24) -> dict:
+    safe_hours = max(1, min(168, int(window_hours)))
+
+    with get_conn() as conn:
+        total = conn.execute("SELECT COUNT(*) FROM alert_events").fetchone()[0]
+        recent = conn.execute(
+            """
+            SELECT COUNT(*)
+            FROM alert_events
+            WHERE created_at >= (CURRENT_TIMESTAMP - (? * INTERVAL '1 hour'))
+            """,
+            [safe_hours],
+        ).fetchone()[0]
+
+        severity_rows = conn.execute(
+            """
+            SELECT severity, COUNT(*) AS c
+            FROM alert_events
+            GROUP BY severity
+            ORDER BY c DESC, severity ASC
+            """
+        ).fetchall()
+
+        delivery_rows = conn.execute(
+            """
+            SELECT delivery_status, COUNT(*) AS c
+            FROM alert_events
+            GROUP BY delivery_status
+            ORDER BY c DESC, delivery_status ASC
+            """
+        ).fetchall()
+
+        type_rows = conn.execute(
+            """
+            SELECT alert_type, COUNT(*) AS c
+            FROM alert_events
+            GROUP BY alert_type
+            ORDER BY c DESC, alert_type ASC
+            """
+        ).fetchall()
+
+    return {
+        "total_alerts": int(total),
+        "alerts_in_window": int(recent),
+        "window_hours": safe_hours,
+        "by_severity": {row[0]: int(row[1]) for row in severity_rows},
+        "by_delivery_status": {row[0]: int(row[1]) for row in delivery_rows},
+        "by_alert_type": {row[0]: int(row[1]) for row in type_rows},
+    }

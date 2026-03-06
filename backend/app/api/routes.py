@@ -15,6 +15,7 @@ from fastapi.responses import PlainTextResponse, Response
 from app.db import get_conn, get_runtime_info
 from app.models import (
     AlertEventResponse,
+    AlertSummaryResponse,
     DatasetSummary,
     DriftEventResponse,
     DriftRunExecuteResponse,
@@ -42,7 +43,7 @@ from app.models import (
     ValidationRunResponse,
     ValidationRunSummaryResponse,
 )
-from app.services.alerts import list_recent_alerts
+from app.services.alerts import list_recent_alerts, summarize_alerts
 from app.services.cleanup import run_cleanup
 from app.services.pipeline import run_pipeline_with_observability
 from app.services.drift import (
@@ -529,6 +530,11 @@ def export_pipeline_artifact_bundle(correlation_id: str) -> Response:
 @router.get("/alerts/recent", response_model=list[AlertEventResponse])
 def get_recent_alerts(limit: int = 50) -> list[AlertEventResponse]:
     return [AlertEventResponse(**row) for row in list_recent_alerts(limit=limit)]
+
+
+@router.get("/alerts/summary", response_model=AlertSummaryResponse)
+def get_alerts_summary(window_hours: int = 24) -> AlertSummaryResponse:
+    return AlertSummaryResponse(**summarize_alerts(window_hours=window_hours))
 
 
 @router.post("/ops/cleanup", response_model=OpsCleanupResponse)

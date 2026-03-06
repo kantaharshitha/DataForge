@@ -240,6 +240,7 @@
     <div class="panel">
       <h3>Alerts</h3>
       <div class="row">
+        <button id="btnAlertsSummary">Refresh Summary</button>
         <label for="alertSeverity">Severity</label>
         <select id="alertSeverity" style="padding:6px;border:1px solid #d9e1ee;border-radius:6px;min-width:140px">
           <option value="ALL">ALL</option>
@@ -255,6 +256,9 @@
           <option value="FAILED">FAILED</option>
           <option value="DEDUPED">DEDUPED</option>
         </select>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <span id="alertsSummaryText" style="color:#5b6472"></span>
       </div>
       <div class="row" style="margin-top:8px">
         <button id="btnAlertsPrev">Prev</button>

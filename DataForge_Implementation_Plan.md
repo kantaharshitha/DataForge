@@ -3,6 +3,23 @@
 ## 1. Objective
 Translate the Phase 0 PRD into a buildable, solo-developer execution plan using FastAPI + DuckDB + Streamlit. Prioritize deterministic behavior, explainability, and auditability.
 
+## 1.1 Current Delivery Status (as of 2026-03-06)
+| Phase | Status | Notes | Evidence |
+|---|---|---|---|
+| Phase 0 — Scope/PRD | Done | Scope, constraints, datasets, KPIs, governance defined | `PRD_DataForge_Phase0.md` |
+| Phase 1 — Ingestion/Profiling | Done | Upload, profiling engine, metadata persistence complete | API + tests on `main` |
+| Phase 2 — Inference/Curated model | Done | Deterministic relationship inference + admin decisions complete | API + tests on `main` |
+| Phase 3 — Validation/Trust | Done | Validation rules, trust scoring, audit logs complete | API + tests on `main` |
+| Phase 4 — KPI/Dashboard | Done | KPI registry/run and executive dashboard complete | API + tests on `main` |
+| Phase 5 — Drift/Lineage | Done | Drift detection, lineage graph, exports complete | Tag `v1.2-governance-observability` |
+| Ops hardening | Done | Runtime diagnostics, cleanup, pipeline observability, run bundle exports | Tag `v1.3-ops-observability` |
+| Phase 6 — Alerting | In Progress | Trust-drop + drift-high alerts, dedup, alerts API/UI added | Tag `v1.4-alerting-hooks` + latest commits |
+
+Immediate remaining items for Phase 6 closure:
+1. Verify webhook delivery in deployed Vercel env (`DATAFORGE_ALERT_WEBHOOK_URL`).
+2. Add/verify alert summary endpoint usage in production dashboard checks.
+3. Publish GitHub release notes for `v1.4-alerting-hooks`.
+
 ## 2. Delivery Principles
 - Build in vertical slices: ingest -> profile -> validate -> trust -> KPI -> dashboard.
 - Keep all logic deterministic and traceable.

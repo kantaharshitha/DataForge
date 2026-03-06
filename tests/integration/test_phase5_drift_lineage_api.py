@@ -237,3 +237,22 @@ def test_alerts_generated_for_high_severity_drift(client: TestClient) -> None:
         a for a in alerts.json() if a["alert_type"] == "DRIFT_HIGH_SEVERITY" and a["severity"] == "HIGH"
     ]
     assert len(high_drift) >= 1
+
+
+def test_alerts_summary_endpoint(client: TestClient) -> None:
+    products_ok = b"product_id,sku,unit_cost\nP001,SKU-1,10\nP002,SKU-2,12\n"
+    products_bad = b"product_id,sku,unit_cost\nP001,SKU-1,-10\nP002,SKU-2,-12\n"
+
+    assert client.post("/upload", files={"file": ("products.csv", products_ok, "text/csv")}).status_code == 200
+    assert client.post("/validation/run").status_code == 200
+    assert client.post("/upload", files={"file": ("products.csv", products_bad, "text/csv")}).status_code == 200
+    assert client.post("/validation/run").status_code == 200
+
+    response = client.get("/alerts/summary", params={"window_hours": 24})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total_alerts"] >= 1
+    assert payload["alerts_in_window"] >= 1
+    assert "by_severity" in payload
+    assert "by_delivery_status" in payload
+    assert "by_alert_type" in payload

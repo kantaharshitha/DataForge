@@ -17,6 +17,9 @@ Date: 2026-03-06
   - Shows enabled/disabled/unreachable status based on `/ops/runtime`.
 - Frontend alerts panel:
   - Recent alerts table with severity/delivery filters and pagination.
+  - Alerts summary stats view.
+- Alerts summary API:
+  - `/alerts/summary?window_hours=24`
 
 ### Quality
 - Integration tests for trust-drop and drift-high alert scenarios.

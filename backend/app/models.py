@@ -318,3 +318,12 @@ class AlertEventResponse(BaseModel):
     delivery_status: str
     delivery_error: str | None = None
     created_at: datetime
+
+
+class AlertSummaryResponse(BaseModel):
+    total_alerts: int
+    alerts_in_window: int
+    window_hours: int
+    by_severity: dict[str, int] = Field(default_factory=dict)
+    by_delivery_status: dict[str, int] = Field(default_factory=dict)
+    by_alert_type: dict[str, int] = Field(default_factory=dict)

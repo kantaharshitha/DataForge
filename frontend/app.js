@@ -24,6 +24,7 @@ let lineagePage = 1;
 let pipelineLastRun = null;
 let alertsAll = [];
 let alertsPage = 1;
+let alertsSummary = null;
 
 function apiBase() {
   return document.getElementById("apiBase").value.replace(/\/$/, "");
@@ -232,6 +233,17 @@ function renderAlerts() {
     `Page ${paging.page}/${paging.totalPages} (${paging.totalItems} alerts)`;
 }
 
+function renderAlertsSummary(payload = alertsSummary) {
+  const el = document.getElementById("alertsSummaryText");
+  if (!el || !payload) {
+    if (el) el.textContent = "";
+    return;
+  }
+  const sev = payload.by_severity || {};
+  el.textContent =
+    `Total=${payload.total_alerts}, last ${payload.window_hours}h=${payload.alerts_in_window}, HIGH=${sev.HIGH || 0}, MEDIUM=${sev.MEDIUM || 0}, LOW=${sev.LOW || 0}`;
+}
+
 async function copyCorrelationId() {
   if (!pipelineLastRun || !pipelineLastRun.correlation_id) {
     show({ error: "No pipeline correlation ID available." });
@@ -372,9 +384,21 @@ document.getElementById("btnDashboard").onclick = async () => {
 document.getElementById("btnAlerts").onclick = async () => {
   try {
     alertsAll = await callApi("/alerts/recent?limit=200");
+    alertsSummary = await callApi("/alerts/summary?window_hours=24");
     alertsPage = 1;
     renderAlerts();
+    renderAlertsSummary();
     show(alertsAll);
+  } catch (e) {
+    show({ error: e.message });
+  }
+};
+
+document.getElementById("btnAlertsSummary").onclick = async () => {
+  try {
+    alertsSummary = await callApi("/alerts/summary?window_hours=24");
+    renderAlertsSummary();
+    show(alertsSummary);
   } catch (e) {
     show({ error: e.message });
   }

@@ -77,6 +77,7 @@ Before production verification, set these Vercel environment variables:
 - Validation/Trust: `/validation/run`, `/validation/runs`, `/validation/results/{validation_run_id}`, `/trust/latest`
 - KPI/Dashboard: `/kpi/seed`, `/kpi/registry`, `/kpi/run`, `/kpi/latest`, `/dashboard/executive`
 - Alerts: `/alerts/recent?limit=50`
+- Alerts summary: `/alerts/summary?window_hours=24`
 - Exports: `/exports/drift/{dataset_name}.csv`, `/exports/validation/{validation_run_id}.csv`, `/exports/lineage/{lineage_run_id}.json`
 - Export bundle: `/exports/run/{correlation_id}.zip`
 - Ops: `/ops/cleanup?keep_last_runs=20&keep_raw_files=200`
