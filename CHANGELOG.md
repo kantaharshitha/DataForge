@@ -20,6 +20,9 @@ Date: 2026-03-06
   - Alerts summary stats view.
 - Alerts summary API:
   - `/alerts/summary?window_hours=24`
+- Alert acknowledgement:
+  - `POST /alerts/acknowledge`
+  - `alert_acknowledgements` storage with acknowledged_by and note.
 
 ### Quality
 - Integration tests for trust-drop and drift-high alert scenarios.

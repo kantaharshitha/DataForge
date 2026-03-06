@@ -146,9 +146,11 @@ def list_recent_alerts(limit: int = 50) -> list[dict]:
     with get_conn() as conn:
         rows = conn.execute(
             """
-            SELECT alert_id, alert_type, severity, title, message, context_json,
-                   delivery_status, delivery_error, created_at
-            FROM alert_events
+            SELECT e.alert_id, e.alert_type, e.severity, e.title, e.message, e.context_json,
+                   e.delivery_status, e.delivery_error, e.created_at,
+                   a.ack_id, a.acknowledged_by, a.note, a.acknowledged_at
+            FROM alert_events e
+            LEFT JOIN alert_acknowledgements a ON e.alert_id = a.alert_id
             ORDER BY created_at DESC
             LIMIT ?
             """,
@@ -166,9 +168,49 @@ def list_recent_alerts(limit: int = 50) -> list[dict]:
             "delivery_status": row[6],
             "delivery_error": row[7],
             "created_at": row[8],
+            "is_acknowledged": bool(row[9]),
+            "acknowledged_by": row[10],
+            "ack_note": row[11],
+            "acknowledged_at": row[12],
         }
         for row in rows
     ]
+
+
+def acknowledge_alert(alert_id: str, acknowledged_by: str, note: str | None = None) -> dict:
+    who = acknowledged_by.strip()
+    if not alert_id.strip():
+        raise ValueError("alert_id is required.")
+    if not who:
+        raise ValueError("acknowledged_by is required.")
+
+    ack_id = str(uuid.uuid4())
+    acknowledged_at = _utc_now_iso()
+    with get_conn() as conn:
+        exists = conn.execute(
+            "SELECT alert_id FROM alert_events WHERE alert_id = ?",
+            [alert_id],
+        ).fetchone()
+        if not exists:
+            raise ValueError("Alert not found.")
+
+        conn.execute("DELETE FROM alert_acknowledgements WHERE alert_id = ?", [alert_id])
+        conn.execute(
+            """
+            INSERT INTO alert_acknowledgements (
+                ack_id, alert_id, acknowledged_by, note, acknowledged_at
+            ) VALUES (?, ?, ?, ?, ?)
+            """,
+            [ack_id, alert_id, who, (note or None), acknowledged_at],
+        )
+
+    return {
+        "ack_id": ack_id,
+        "alert_id": alert_id,
+        "acknowledged_by": who,
+        "note": note or None,
+        "acknowledged_at": acknowledged_at,
+    }
 
 
 def summarize_alerts(window_hours: int = 24) -> dict:

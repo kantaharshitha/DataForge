@@ -14,6 +14,8 @@ from fastapi.responses import PlainTextResponse, Response
 
 from app.db import get_conn, get_runtime_info
 from app.models import (
+    AlertAcknowledgeRequest,
+    AlertAcknowledgeResponse,
     AlertEventResponse,
     AlertSummaryResponse,
     DatasetSummary,
@@ -43,7 +45,7 @@ from app.models import (
     ValidationRunResponse,
     ValidationRunSummaryResponse,
 )
-from app.services.alerts import list_recent_alerts, summarize_alerts
+from app.services.alerts import acknowledge_alert, list_recent_alerts, summarize_alerts
 from app.services.cleanup import run_cleanup
 from app.services.pipeline import run_pipeline_with_observability
 from app.services.drift import (
@@ -535,6 +537,20 @@ def get_recent_alerts(limit: int = 50) -> list[AlertEventResponse]:
 @router.get("/alerts/summary", response_model=AlertSummaryResponse)
 def get_alerts_summary(window_hours: int = 24) -> AlertSummaryResponse:
     return AlertSummaryResponse(**summarize_alerts(window_hours=window_hours))
+
+
+@router.post("/alerts/acknowledge", response_model=AlertAcknowledgeResponse)
+def post_acknowledge_alert(request: AlertAcknowledgeRequest) -> AlertAcknowledgeResponse:
+    try:
+        return AlertAcknowledgeResponse(
+            **acknowledge_alert(
+                alert_id=request.alert_id,
+                acknowledged_by=request.acknowledged_by,
+                note=request.note,
+            )
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/ops/cleanup", response_model=OpsCleanupResponse)

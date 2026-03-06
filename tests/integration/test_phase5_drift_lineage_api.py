@@ -256,3 +256,36 @@ def test_alerts_summary_endpoint(client: TestClient) -> None:
     assert "by_severity" in payload
     assert "by_delivery_status" in payload
     assert "by_alert_type" in payload
+
+
+def test_alert_acknowledgement_endpoint(client: TestClient) -> None:
+    products_ok = b"product_id,sku,unit_cost\nP001,SKU-1,10\nP002,SKU-2,12\n"
+    products_bad = b"product_id,sku,unit_cost\nP001,SKU-1,-10\nP002,SKU-2,-12\n"
+
+    assert client.post("/upload", files={"file": ("products.csv", products_ok, "text/csv")}).status_code == 200
+    assert client.post("/validation/run").status_code == 200
+    assert client.post("/upload", files={"file": ("products.csv", products_bad, "text/csv")}).status_code == 200
+    assert client.post("/validation/run").status_code == 200
+
+    alerts = client.get("/alerts/recent", params={"limit": 20})
+    assert alerts.status_code == 200
+    target = alerts.json()[0]
+
+    ack = client.post(
+        "/alerts/acknowledge",
+        json={
+            "alert_id": target["alert_id"],
+            "acknowledged_by": "ops_admin",
+            "note": "investigating",
+        },
+    )
+    assert ack.status_code == 200
+    ack_body = ack.json()
+    assert ack_body["alert_id"] == target["alert_id"]
+    assert ack_body["acknowledged_by"] == "ops_admin"
+
+    refreshed = client.get("/alerts/recent", params={"limit": 20})
+    assert refreshed.status_code == 200
+    match = [a for a in refreshed.json() if a["alert_id"] == target["alert_id"]][0]
+    assert match["is_acknowledged"] is True
+    assert match["acknowledged_by"] == "ops_admin"

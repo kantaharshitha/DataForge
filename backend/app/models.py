@@ -318,6 +318,10 @@ class AlertEventResponse(BaseModel):
     delivery_status: str
     delivery_error: str | None = None
     created_at: datetime
+    is_acknowledged: bool = False
+    acknowledged_by: str | None = None
+    ack_note: str | None = None
+    acknowledged_at: datetime | None = None
 
 
 class AlertSummaryResponse(BaseModel):
@@ -327,3 +331,17 @@ class AlertSummaryResponse(BaseModel):
     by_severity: dict[str, int] = Field(default_factory=dict)
     by_delivery_status: dict[str, int] = Field(default_factory=dict)
     by_alert_type: dict[str, int] = Field(default_factory=dict)
+
+
+class AlertAcknowledgeRequest(BaseModel):
+    alert_id: str
+    acknowledged_by: str
+    note: str | None = None
+
+
+class AlertAcknowledgeResponse(BaseModel):
+    ack_id: str
+    alert_id: str
+    acknowledged_by: str
+    note: str | None = None
+    acknowledged_at: datetime

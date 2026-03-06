@@ -219,11 +219,13 @@ function renderAlerts() {
   tbody.innerHTML = "";
   for (const alert of paging.pageItems) {
     const tr = document.createElement("tr");
+    const ack = alert.is_acknowledged ? `YES (${alert.acknowledged_by || "unknown"})` : "NO";
     tr.innerHTML = `
       <td>${alert.created_at ?? ""}</td>
       <td>${alert.alert_type ?? ""}</td>
       <td>${alert.severity ?? ""}</td>
       <td>${alert.delivery_status ?? ""}</td>
+      <td>${ack}</td>
       <td>${alert.message ?? ""}</td>
     `;
     tbody.appendChild(tr);
@@ -399,6 +401,32 @@ document.getElementById("btnAlertsSummary").onclick = async () => {
     alertsSummary = await callApi("/alerts/summary?window_hours=24");
     renderAlertsSummary();
     show(alertsSummary);
+  } catch (e) {
+    show({ error: e.message });
+  }
+};
+
+document.getElementById("btnAcknowledgeAlert").onclick = async () => {
+  const alertId = document.getElementById("ackAlertId").value.trim();
+  const acknowledgedBy = document.getElementById("ackBy").value.trim();
+  const note = document.getElementById("ackNote").value.trim();
+  if (!alertId || !acknowledgedBy) {
+    show({ error: "alert_id and acknowledged_by are required." });
+    return;
+  }
+  try {
+    const result = await callApi("/alerts/acknowledge", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        alert_id: alertId,
+        acknowledged_by: acknowledgedBy,
+        note: note || null,
+      }),
+    });
+    alertsAll = await callApi("/alerts/recent?limit=200");
+    renderAlerts();
+    show(result);
   } catch (e) {
     show({ error: e.message });
   }
