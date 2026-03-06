@@ -384,3 +384,11 @@ class AlertSLAResponse(BaseModel):
     mtta_minutes: float | None = None
     escalations_in_window: int
     escalations_per_day: float
+
+
+class AlertSLABreachRunResponse(BaseModel):
+    window_hours: int
+    thresholds: dict = Field(default_factory=dict)
+    sla: dict = Field(default_factory=dict)
+    breach_count: int
+    breaches: list[dict] = Field(default_factory=list)

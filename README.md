@@ -28,6 +28,9 @@ Why this change:
   - `DATAFORGE_ALERT_TRUST_FLOOR` (default `80`)
   - `DATAFORGE_ALERT_DEDUP_MINUTES` (default `30`)
   - `DATAFORGE_ESCALATION_MINUTES` (default `60`)
+  - `DATAFORGE_SLA_MAX_OPEN_HIGH` (default `5`)
+  - `DATAFORGE_SLA_MAX_MTTA_MINUTES` (default `60`)
+  - `DATAFORGE_SLA_MAX_ESCALATIONS_PER_DAY` (default `3`)
 
 ## Local Run (Recommended)
 1. Setup:
@@ -80,6 +83,7 @@ Before production verification, set these Vercel environment variables:
 - Alerts: `/alerts/recent?limit=50`
 - Alerts summary: `/alerts/summary?window_hours=24`
 - Alerts SLA: `/alerts/sla?window_hours=24`
+- Alerts SLA check (ops): `POST /ops/alerts/sla/check?window_hours=24`
 - Alerts acknowledge: `POST /alerts/acknowledge`
 - Alerts assign: `POST /alerts/assign`
 - Exports: `/exports/drift/{dataset_name}.csv`, `/exports/validation/{validation_run_id}.csv`, `/exports/lineage/{lineage_run_id}.json`
@@ -89,6 +93,7 @@ Before production verification, set these Vercel environment variables:
 - Ops pipeline observability: `/ops/pipeline/run?auto_accept_inference=true`
 - Ops runtime diagnostics: `/ops/runtime`
 - Ops alerts escalation: `/ops/alerts/escalate/run?older_than_minutes=60&limit=50`
+- Ops alerts SLA check: `/ops/alerts/sla/check?window_hours=24`
 
 ## Validation and Smoke Tests
 Run all tests:
@@ -123,6 +128,13 @@ Automated escalation scan is available with GitHub Actions:
   - `DATAFORGE_OPS_API_KEY`
   - Optional: `DATAFORGE_ESCALATION_MINUTES` (defaults to `60`)
 
+Automated SLA check is available with GitHub Actions:
+- Workflow: `.github/workflows/nightly_alert_sla_check.yml`
+- Required repository secrets:
+  - `DATAFORGE_BASE_URL`
+  - `DATAFORGE_OPS_API_KEY`
+  - Optional: `DATAFORGE_SLA_WINDOW_HOURS` (defaults to `24`)
+
 Deployment verification automation:
 ```powershell
 .\scripts\verify_deployment.ps1 -BaseUrl "https://your-app.vercel.app/api" -OpsApiKey "<DATAFORGE_OPS_API_KEY>"
@@ -152,6 +164,7 @@ $env:GITHUB_TOKEN="<token>"
 - Alert acknowledgement workflow (ack by + note).
 - Alert assignment and manual escalation scan controls.
 - Alert SLA cards (open high alerts, MTTA, escalations/day).
+- Manual SLA breach-check trigger from frontend (`Run SLA Check`).
 
 ## Operations
 - Runbook: `OPERATIONS.md`

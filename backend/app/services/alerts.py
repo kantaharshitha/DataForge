@@ -321,6 +321,81 @@ def summarize_alert_sla(window_hours: int = 24) -> dict:
     }
 
 
+def run_alert_sla_breach_check(window_hours: int = 24) -> dict:
+    sla = summarize_alert_sla(window_hours=window_hours)
+    breaches: list[dict] = []
+
+    max_open_high = int(os.getenv("DATAFORGE_SLA_MAX_OPEN_HIGH", "5"))
+    max_mtta = float(os.getenv("DATAFORGE_SLA_MAX_MTTA_MINUTES", "60"))
+    max_escalations_per_day = float(os.getenv("DATAFORGE_SLA_MAX_ESCALATIONS_PER_DAY", "3"))
+
+    if int(sla["open_high_alerts"]) > max_open_high:
+        emitted = emit_alert(
+            alert_type="SLA_BREACH_OPEN_HIGH",
+            severity="HIGH",
+            title="SLA breach: open high alerts",
+            message=(
+                f"Open high alerts {sla['open_high_alerts']} exceeded threshold {max_open_high} "
+                f"in last {sla['window_hours']}h."
+            ),
+            context={
+                "metric": "open_high_alerts",
+                "actual": sla["open_high_alerts"],
+                "threshold": max_open_high,
+                "window_hours": sla["window_hours"],
+            },
+        )
+        breaches.append({"metric": "open_high_alerts", "alert_id": emitted["alert_id"]})
+
+    if sla["mtta_minutes"] is not None and float(sla["mtta_minutes"]) > max_mtta:
+        emitted = emit_alert(
+            alert_type="SLA_BREACH_MTTA",
+            severity="HIGH",
+            title="SLA breach: MTTA",
+            message=(
+                f"MTTA {sla['mtta_minutes']}m exceeded threshold {max_mtta}m "
+                f"in last {sla['window_hours']}h."
+            ),
+            context={
+                "metric": "mtta_minutes",
+                "actual": sla["mtta_minutes"],
+                "threshold": max_mtta,
+                "window_hours": sla["window_hours"],
+            },
+        )
+        breaches.append({"metric": "mtta_minutes", "alert_id": emitted["alert_id"]})
+
+    if float(sla["escalations_per_day"]) > max_escalations_per_day:
+        emitted = emit_alert(
+            alert_type="SLA_BREACH_ESCALATIONS_PER_DAY",
+            severity="MEDIUM",
+            title="SLA breach: escalations per day",
+            message=(
+                f"Escalations/day {sla['escalations_per_day']} exceeded threshold {max_escalations_per_day} "
+                f"in last {sla['window_hours']}h."
+            ),
+            context={
+                "metric": "escalations_per_day",
+                "actual": sla["escalations_per_day"],
+                "threshold": max_escalations_per_day,
+                "window_hours": sla["window_hours"],
+            },
+        )
+        breaches.append({"metric": "escalations_per_day", "alert_id": emitted["alert_id"]})
+
+    return {
+        "window_hours": sla["window_hours"],
+        "thresholds": {
+            "max_open_high_alerts": max_open_high,
+            "max_mtta_minutes": max_mtta,
+            "max_escalations_per_day": max_escalations_per_day,
+        },
+        "sla": sla,
+        "breach_count": len(breaches),
+        "breaches": breaches,
+    }
+
+
 def assign_alert(
     *,
     alert_id: str,

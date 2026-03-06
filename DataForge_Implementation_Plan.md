@@ -23,7 +23,9 @@ Production verification pending (manual, not code-blocking):
 Phase 7 started (in progress):
 1. Added alert SLA metrics endpoint (`/alerts/sla`) and dashboard cards.
 2. Added scheduled escalation workflow (`nightly_alert_escalation.yml`).
-3. Next: tune SLA targets and add breach notifications.
+3. Added SLA breach check endpoint (`/ops/alerts/sla/check`) with threshold-based alerts.
+4. Added scheduled SLA check workflow (`nightly_alert_sla_check.yml`).
+5. Next: tune SLA thresholds in production and verify breach notification sensitivity.
 
 ## 2. Delivery Principles
 - Build in vertical slices: ingest -> profile -> validate -> trust -> KPI -> dashboard.

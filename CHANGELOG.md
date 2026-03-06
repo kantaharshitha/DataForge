@@ -35,6 +35,11 @@ Date: 2026-03-06
   - Frontend SLA cards for open high alerts, MTTA, and escalations/day.
 - Scheduled escalation workflow:
   - `.github/workflows/nightly_alert_escalation.yml`
+- SLA breach detection:
+  - `POST /ops/alerts/sla/check?window_hours=24`
+  - Threshold-driven breach alerts for open high, MTTA, and escalations/day.
+- Scheduled SLA workflow:
+  - `.github/workflows/nightly_alert_sla_check.yml`
 
 ### Quality
 - Integration tests for trust-drop and drift-high alert scenarios.

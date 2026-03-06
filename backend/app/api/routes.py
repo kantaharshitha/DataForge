@@ -20,6 +20,7 @@ from app.models import (
     AlertAcknowledgeResponse,
     AlertEventResponse,
     AlertEscalationRunResponse,
+    AlertSLABreachRunResponse,
     AlertSLAResponse,
     AlertSummaryResponse,
     DatasetSummary,
@@ -54,6 +55,7 @@ from app.services.alerts import (
     assign_alert,
     list_recent_alerts,
     run_alert_escalation_scan,
+    run_alert_sla_breach_check,
     summarize_alert_sla,
     summarize_alerts,
 )
@@ -594,6 +596,14 @@ def post_alert_escalation_run(
     return AlertEscalationRunResponse(
         **run_alert_escalation_scan(older_than_minutes=older_than_minutes, limit=limit)
     )
+
+
+@router.post("/ops/alerts/sla/check", response_model=AlertSLABreachRunResponse)
+def post_alert_sla_check(
+    window_hours: int = 24,
+    _: None = Depends(require_ops_api_key),
+) -> AlertSLABreachRunResponse:
+    return AlertSLABreachRunResponse(**run_alert_sla_breach_check(window_hours=window_hours))
 
 
 @router.get("/exports/alerts.csv", response_class=PlainTextResponse)

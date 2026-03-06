@@ -396,3 +396,23 @@ def test_alert_sla_endpoint(client: TestClient) -> None:
     assert "mtta_minutes" in payload
     assert "escalations_in_window" in payload
     assert "escalations_per_day" in payload
+
+
+def test_alert_sla_breach_check_endpoint(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    products_ok = b"product_id,sku,unit_cost\nP001,SKU-1,10\nP002,SKU-2,12\n"
+    products_bad = b"product_id,sku,unit_cost\nP001,SKU-1,-10\nP002,SKU-2,-12\n"
+    assert client.post("/upload", files={"file": ("products.csv", products_ok, "text/csv")}).status_code == 200
+    assert client.post("/validation/run").status_code == 200
+    assert client.post("/upload", files={"file": ("products.csv", products_bad, "text/csv")}).status_code == 200
+    assert client.post("/validation/run").status_code == 200
+
+    monkeypatch.setenv("DATAFORGE_SLA_MAX_OPEN_HIGH", "0")
+    monkeypatch.setenv("DATAFORGE_SLA_MAX_MTTA_MINUTES", "0")
+    monkeypatch.setenv("DATAFORGE_SLA_MAX_ESCALATIONS_PER_DAY", "0")
+
+    response = client.post("/ops/alerts/sla/check", params={"window_hours": 24})
+    assert response.status_code == 200
+    payload = response.json()
+    assert "breach_count" in payload
+    assert "thresholds" in payload
+    assert payload["breach_count"] >= 1

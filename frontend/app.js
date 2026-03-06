@@ -508,6 +508,21 @@ document.getElementById("btnRunEscalation").onclick = async () => {
   }
 };
 
+document.getElementById("btnRunSlaCheck").onclick = async () => {
+  try {
+    const result = await callApi("/ops/alerts/sla/check?window_hours=24", { method: "POST" });
+    alertsAll = await callApi("/alerts/recent?limit=200");
+    alertsSummary = await callApi("/alerts/summary?window_hours=24");
+    alertsSla = await callApi("/alerts/sla?window_hours=24");
+    renderAlerts();
+    renderAlertsSummary();
+    renderAlertsSla();
+    show(result);
+  } catch (e) {
+    show({ error: e.message });
+  }
+};
+
 document.getElementById("btnDriftRuns").onclick = async () => {
   try {
     const runs = await callApi("/drift/runs");
