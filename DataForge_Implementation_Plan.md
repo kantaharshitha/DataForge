@@ -20,6 +20,11 @@ Production verification pending (manual, not code-blocking):
 2. Capture production evidence for summary/ack/assignment/escalation checks.
 3. Publish GitHub release notes for current alert-operations tag.
 
+Release and Verification Tracking:
+- Target release tag: `v1.5-alert-operations`
+- Release URL: `PENDING`
+- Verification evidence file: `phase6_production_verification.json` (PENDING)
+
 Phase 7 started (in progress):
 1. Added alert SLA metrics endpoint (`/alerts/sla`) and dashboard cards.
 2. Added scheduled escalation workflow (`nightly_alert_escalation.yml`).

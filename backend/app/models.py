@@ -392,6 +392,8 @@ class AlertSLABreachRunResponse(BaseModel):
     sla: dict = Field(default_factory=dict)
     breach_count: int
     breaches: list[dict] = Field(default_factory=list)
+    suppressed_count: int = 0
+    suppressed_metrics: list[str] = Field(default_factory=list)
 
 
 class AlertSLAHistoryPointResponse(BaseModel):

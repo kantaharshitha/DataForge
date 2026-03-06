@@ -329,7 +329,25 @@ def run_alert_sla_breach_check(window_hours: int = 24) -> dict:
     max_mtta = float(os.getenv("DATAFORGE_SLA_MAX_MTTA_MINUTES", "60"))
     max_escalations_per_day = float(os.getenv("DATAFORGE_SLA_MAX_ESCALATIONS_PER_DAY", "3"))
 
-    if int(sla["open_high_alerts"]) > max_open_high:
+    suppressed: list[str] = []
+
+    def _breach_already_emitted_today(metric: str) -> bool:
+        with get_conn() as conn:
+            rows = conn.execute(
+                """
+                SELECT context_json
+                FROM alert_events
+                WHERE alert_type LIKE 'SLA_BREACH_%'
+                  AND created_at >= DATE_TRUNC('day', CURRENT_TIMESTAMP)
+                """
+            ).fetchall()
+        for row in rows:
+            ctx = json.loads(row[0]) if row[0] else {}
+            if ctx.get("metric") == metric:
+                return True
+        return False
+
+    if int(sla["open_high_alerts"]) > max_open_high and not _breach_already_emitted_today("open_high_alerts"):
         emitted = emit_alert(
             alert_type="SLA_BREACH_OPEN_HIGH",
             severity="HIGH",
@@ -346,8 +364,14 @@ def run_alert_sla_breach_check(window_hours: int = 24) -> dict:
             },
         )
         breaches.append({"metric": "open_high_alerts", "alert_id": emitted["alert_id"]})
+    elif int(sla["open_high_alerts"]) > max_open_high:
+        suppressed.append("open_high_alerts")
 
-    if sla["mtta_minutes"] is not None and float(sla["mtta_minutes"]) > max_mtta:
+    if (
+        sla["mtta_minutes"] is not None
+        and float(sla["mtta_minutes"]) > max_mtta
+        and not _breach_already_emitted_today("mtta_minutes")
+    ):
         emitted = emit_alert(
             alert_type="SLA_BREACH_MTTA",
             severity="HIGH",
@@ -364,8 +388,13 @@ def run_alert_sla_breach_check(window_hours: int = 24) -> dict:
             },
         )
         breaches.append({"metric": "mtta_minutes", "alert_id": emitted["alert_id"]})
+    elif sla["mtta_minutes"] is not None and float(sla["mtta_minutes"]) > max_mtta:
+        suppressed.append("mtta_minutes")
 
-    if float(sla["escalations_per_day"]) > max_escalations_per_day:
+    if (
+        float(sla["escalations_per_day"]) > max_escalations_per_day
+        and not _breach_already_emitted_today("escalations_per_day")
+    ):
         emitted = emit_alert(
             alert_type="SLA_BREACH_ESCALATIONS_PER_DAY",
             severity="MEDIUM",
@@ -382,6 +411,8 @@ def run_alert_sla_breach_check(window_hours: int = 24) -> dict:
             },
         )
         breaches.append({"metric": "escalations_per_day", "alert_id": emitted["alert_id"]})
+    elif float(sla["escalations_per_day"]) > max_escalations_per_day:
+        suppressed.append("escalations_per_day")
 
     return {
         "window_hours": sla["window_hours"],
@@ -393,6 +424,8 @@ def run_alert_sla_breach_check(window_hours: int = 24) -> dict:
         "sla": sla,
         "breach_count": len(breaches),
         "breaches": breaches,
+        "suppressed_count": len(suppressed),
+        "suppressed_metrics": suppressed,
     }
 
 

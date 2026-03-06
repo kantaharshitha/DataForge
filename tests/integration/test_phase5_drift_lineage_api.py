@@ -417,6 +417,11 @@ def test_alert_sla_breach_check_endpoint(client: TestClient, monkeypatch: pytest
     assert "thresholds" in payload
     assert payload["breach_count"] >= 1
 
+    repeat = client.post("/ops/alerts/sla/check", params={"window_hours": 24})
+    assert repeat.status_code == 200
+    repeat_payload = repeat.json()
+    assert repeat_payload["suppressed_count"] >= 1
+
 
 def test_alert_sla_history_endpoint(client: TestClient) -> None:
     products_ok = b"product_id,sku,unit_cost\nP001,SKU-1,10\nP002,SKU-2,12\n"

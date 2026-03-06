@@ -38,6 +38,7 @@ Date: 2026-03-06
 - SLA breach detection:
   - `POST /ops/alerts/sla/check?window_hours=24`
   - Threshold-driven breach alerts for open high, MTTA, and escalations/day.
+  - Added metric+day dedup guard to prevent repeated breach spam in same day.
 - Scheduled SLA workflow:
   - `.github/workflows/nightly_alert_sla_check.yml`
 - SLA history:

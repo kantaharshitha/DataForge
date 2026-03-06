@@ -70,6 +70,17 @@ $env:GITHUB_TOKEN="<token-with-workflow-permission>"
 .\scripts\trigger_cleanup_workflow.ps1 -Repo "kantaharshitha/DataForge" -Ref "main"
 ```
 
+## Release and Evidence
+1. Run production verification and save evidence:
+```powershell
+.\scripts\verify_phase6_production.ps1 -BaseUrl "https://your-app.vercel.app/api" -OpsApiKey "<DATAFORGE_OPS_API_KEY>" -EvidenceFile "phase6_production_verification.json"
+```
+2. Create GitHub release:
+```powershell
+$env:GITHUB_TOKEN="<token>"
+.\scripts\create_github_release.ps1 -Repo "kantaharshitha/DataForge" -Tag "v1.5-alert-operations" -Title "DataForge v1.5-alert-operations" -NotesFile ".\RELEASE_NOTES_v1.5-alert-operations.md"
+```
+
 ## Incident Checks
 1. `500` on ops routes:
    - Validate `DATAFORGE_OPS_API_KEY` exists and request header is correct.

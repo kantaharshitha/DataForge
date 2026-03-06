@@ -85,6 +85,7 @@ Before production verification, set these Vercel environment variables:
 - Alerts SLA: `/alerts/sla?window_hours=24`
 - Alerts SLA history: `/alerts/sla/history?days=14`
 - Alerts SLA check (ops): `POST /ops/alerts/sla/check?window_hours=24`
+- SLA breach dedup guard: one breach alert per metric per day.
 - Alerts acknowledge: `POST /alerts/acknowledge`
 - Alerts assign: `POST /alerts/assign`
 - Exports: `/exports/drift/{dataset_name}.csv`, `/exports/validation/{validation_run_id}.csv`, `/exports/lineage/{lineage_run_id}.json`
