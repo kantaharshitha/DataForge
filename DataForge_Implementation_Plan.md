@@ -13,12 +13,12 @@ Translate the Phase 0 PRD into a buildable, solo-developer execution plan using 
 | Phase 4 — KPI/Dashboard | Done | KPI registry/run and executive dashboard complete | API + tests on `main` |
 | Phase 5 — Drift/Lineage | Done | Drift detection, lineage graph, exports complete | Tag `v1.2-governance-observability` |
 | Ops hardening | Done | Runtime diagnostics, cleanup, pipeline observability, run bundle exports | Tag `v1.3-ops-observability` |
-| Phase 6 — Alerting | In Progress | Trust-drop + drift-high alerts, dedup, alerts API/UI + acknowledgement/assignment/escalation flow added | Tag `v1.4-alerting-hooks` + latest commits |
+| Phase 6 — Alerting | Done (Code Complete) | Trust-drop + drift-high alerts, dedup, alerts API/UI + acknowledgement/assignment/escalation + exports | Tag `v1.4-alerting-hooks` + post-tag commits |
 
-Immediate remaining items for Phase 6 closure:
+Production verification pending (manual, not code-blocking):
 1. Verify webhook delivery in deployed Vercel env (`DATAFORGE_ALERT_WEBHOOK_URL`).
-2. Add/verify alert summary, acknowledgement, assignment, and escalation endpoint usage in production dashboard checks.
-3. Publish GitHub release notes for `v1.4-alerting-hooks`.
+2. Capture production evidence for summary/ack/assignment/escalation checks.
+3. Publish GitHub release notes for current alert-operations tag.
 
 ## 2. Delivery Principles
 - Build in vertical slices: ingest -> profile -> validate -> trust -> KPI -> dashboard.

@@ -120,6 +120,11 @@ Deployment verification automation:
 .\scripts\verify_deployment.ps1 -BaseUrl "https://your-app.vercel.app/api" -OpsApiKey "<DATAFORGE_OPS_API_KEY>"
 ```
 
+Phase 6 production alert verification:
+```powershell
+.\scripts\verify_phase6_production.ps1 -BaseUrl "https://your-app.vercel.app/api" -OpsApiKey "<DATAFORGE_OPS_API_KEY>" -EvidenceFile "phase6_production_verification.json"
+```
+
 Manual workflow dispatch helper (GitHub API):
 ```powershell
 $env:GITHUB_TOKEN="<token>"
@@ -143,3 +148,10 @@ $env:GITHUB_TOKEN="<token>"
 - Runbook: `OPERATIONS.md`
 - Environment template: `.env.example`
 - Release notes: `RELEASE_NOTES_v1.3-ops-observability.md`
+- Release notes (alert operations): `RELEASE_NOTES_v1.5-alert-operations.md`
+
+Create GitHub release via API token:
+```powershell
+$env:GITHUB_TOKEN="<token>"
+.\scripts\create_github_release.ps1 -Repo "kantaharshitha/DataForge" -Tag "v1.5-alert-operations" -Title "DataForge v1.5-alert-operations" -NotesFile ".\RELEASE_NOTES_v1.5-alert-operations.md"
+```
