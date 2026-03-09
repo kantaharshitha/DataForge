@@ -293,6 +293,28 @@
         <button id="btnLoadSlaBreaches">Load Breach Inbox</button>
       </div>
       <div class="row" style="margin-top:8px">
+        <label for="slaBreachDays">Breach Days</label>
+        <input id="slaBreachDays" type="number" value="14" min="1" max="90" style="width:70px;padding:6px;border:1px solid #d9e1ee;border-radius:6px" />
+        <label for="slaBreachLimit">Limit</label>
+        <input id="slaBreachLimit" type="number" value="50" min="1" max="500" style="width:70px;padding:6px;border:1px solid #d9e1ee;border-radius:6px" />
+        <label for="slaBreachMetric">Metric</label>
+        <select id="slaBreachMetric" style="padding:6px;border:1px solid #d9e1ee;border-radius:6px;min-width:190px">
+          <option value="ALL">ALL</option>
+          <option value="open_high_alerts">open_high_alerts</option>
+          <option value="mtta_minutes">mtta_minutes</option>
+          <option value="escalations_per_day">escalations_per_day</option>
+        </select>
+        <label for="slaBreachSeverity">Severity</label>
+        <select id="slaBreachSeverity" style="padding:6px;border:1px solid #d9e1ee;border-radius:6px;min-width:130px">
+          <option value="ALL">ALL</option>
+          <option value="HIGH">HIGH</option>
+          <option value="MEDIUM">MEDIUM</option>
+          <option value="LOW">LOW</option>
+          <option value="CRITICAL">CRITICAL</option>
+        </select>
+        <button id="btnSlaBreachesExport">Export Breaches CSV</button>
+      </div>
+      <div class="row" style="margin-top:8px">
         <span id="slaOpenHigh" style="padding:6px 10px;border-radius:10px;background:#fff7ed;border:1px solid #f3c77a;color:#92400e;">Open High: -</span>
         <span id="slaMtta" style="padding:6px 10px;border-radius:10px;background:#ecfdf3;border:1px solid #a7f3d0;color:#166534;">MTTA (min): -</span>
         <span id="slaEscPerDay" style="padding:6px 10px;border-radius:10px;background:#eef3fb;border:1px solid #d9e1ee;color:#334155;">Escalations/Day: -</span>
@@ -344,6 +366,7 @@
             <tr>
               <th>Time</th>
               <th>Type</th>
+              <th>Metric</th>
               <th>Severity</th>
               <th>Delivery</th>
               <th>Message</th>

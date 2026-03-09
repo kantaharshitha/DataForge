@@ -29,6 +29,19 @@ let alertsSla = null;
 let alertsSlaHistory = [];
 let alertsSlaBreaches = null;
 
+function getSlaBreachQuery() {
+  const days = Number(document.getElementById("slaBreachDays")?.value || "14");
+  const limit = Number(document.getElementById("slaBreachLimit")?.value || "50");
+  const metric = document.getElementById("slaBreachMetric")?.value || "ALL";
+  const severity = document.getElementById("slaBreachSeverity")?.value || "ALL";
+  const params = new URLSearchParams();
+  params.set("days", String(Math.min(90, Math.max(1, days))));
+  params.set("limit", String(Math.min(500, Math.max(1, limit))));
+  if (metric !== "ALL") params.set("metric", metric);
+  if (severity !== "ALL") params.set("severity", severity);
+  return params.toString();
+}
+
 function apiBase() {
   return document.getElementById("apiBase").value.replace(/\/$/, "");
 }
@@ -286,10 +299,12 @@ function renderSlaBreaches(payload = alertsSlaBreaches) {
   }
   const events = payload.events || [];
   for (const row of events) {
+    const metric = row.context?.metric || "-";
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${row.created_at ?? ""}</td>
       <td>${row.alert_type ?? ""}</td>
+      <td>${metric}</td>
       <td>${row.severity ?? ""}</td>
       <td>${row.delivery_status ?? ""}</td>
       <td>${row.message ?? ""}</td>
@@ -444,7 +459,7 @@ document.getElementById("btnAlerts").onclick = async () => {
     alertsSummary = await callApi("/alerts/summary?window_hours=24");
     alertsSla = await callApi("/alerts/sla?window_hours=24");
     alertsSlaHistory = await callApi("/alerts/sla/history?days=14");
-    alertsSlaBreaches = await callApi("/alerts/sla/breaches?days=14&limit=50");
+    alertsSlaBreaches = await callApi(`/alerts/sla/breaches?${getSlaBreachQuery()}`);
     alertsPage = 1;
     renderAlerts();
     renderAlertsSummary();
@@ -564,7 +579,7 @@ document.getElementById("btnRunSlaCheck").onclick = async () => {
     alertsSummary = await callApi("/alerts/summary?window_hours=24");
     alertsSla = await callApi("/alerts/sla?window_hours=24");
     alertsSlaHistory = await callApi("/alerts/sla/history?days=14");
-    alertsSlaBreaches = await callApi("/alerts/sla/breaches?days=14&limit=50");
+    alertsSlaBreaches = await callApi(`/alerts/sla/breaches?${getSlaBreachQuery()}`);
     renderAlerts();
     renderAlertsSummary();
     renderAlertsSla();
@@ -588,9 +603,17 @@ document.getElementById("btnLoadSlaHistory").onclick = async () => {
 
 document.getElementById("btnLoadSlaBreaches").onclick = async () => {
   try {
-    alertsSlaBreaches = await callApi("/alerts/sla/breaches?days=14&limit=50");
+    alertsSlaBreaches = await callApi(`/alerts/sla/breaches?${getSlaBreachQuery()}`);
     renderSlaBreaches();
     show(alertsSlaBreaches);
+  } catch (e) {
+    show({ error: e.message });
+  }
+};
+
+document.getElementById("btnSlaBreachesExport").onclick = async () => {
+  try {
+    await downloadFromApi(`/exports/alerts_sla_breaches.csv?${getSlaBreachQuery()}`, "alerts_sla_breaches.csv");
   } catch (e) {
     show({ error: e.message });
   }

@@ -568,8 +568,16 @@ def get_alerts_sla_history(days: int = 14) -> list[AlertSLAHistoryPointResponse]
 
 
 @router.get("/alerts/sla/breaches", response_model=AlertSLABreachInboxResponse)
-def get_alerts_sla_breaches(days: int = 14, limit: int = 100) -> AlertSLABreachInboxResponse:
-    payload = list_alert_sla_breaches(days=days, limit=limit)
+def get_alerts_sla_breaches(
+    days: int = 14,
+    limit: int = 100,
+    metric: str | None = None,
+    severity: str | None = None,
+) -> AlertSLABreachInboxResponse:
+    try:
+        payload = list_alert_sla_breaches(days=days, limit=limit, metric=metric, severity=severity)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     payload["events"] = [AlertSLABreachEventResponse(**row) for row in payload["events"]]
     return AlertSLABreachInboxResponse(**payload)
 
@@ -695,6 +703,56 @@ def export_alert_acknowledgements_csv(limit: int = 1000) -> PlainTextResponse:
     return PlainTextResponse(
         content=output.getvalue(),
         headers={"Content-Disposition": 'attachment; filename="alerts_acknowledgements.csv"'},
+    )
+
+
+@router.get("/exports/alerts_sla_breaches.csv", response_class=PlainTextResponse)
+def export_alert_sla_breaches_csv(
+    days: int = 14,
+    limit: int = 1000,
+    metric: str | None = None,
+    severity: str | None = None,
+) -> PlainTextResponse:
+    try:
+        payload = list_alert_sla_breaches(days=days, limit=limit, metric=metric, severity=severity)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    rows = payload["events"]
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(
+        [
+            "alert_id",
+            "alert_type",
+            "severity",
+            "metric",
+            "actual",
+            "threshold",
+            "window_hours",
+            "message",
+            "delivery_status",
+            "created_at",
+        ]
+    )
+    for row in rows:
+        context = row.get("context") or {}
+        writer.writerow(
+            [
+                row.get("alert_id", ""),
+                row.get("alert_type", ""),
+                row.get("severity", ""),
+                context.get("metric", ""),
+                context.get("actual", ""),
+                context.get("threshold", ""),
+                context.get("window_hours", ""),
+                row.get("message", ""),
+                row.get("delivery_status", ""),
+                row.get("created_at", ""),
+            ]
+        )
+    return PlainTextResponse(
+        content=output.getvalue(),
+        headers={"Content-Disposition": 'attachment; filename="alerts_sla_breaches.csv"'},
     )
 
 

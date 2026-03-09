@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.5.1-alert-sla-inbox-filters
+Date: 2026-03-09
+
+### Added
+- SLA breach inbox API filters:
+  - `metric` and `severity` query params on `/alerts/sla/breaches`.
+- SLA breach CSV export:
+  - `/exports/alerts_sla_breaches.csv` with optional `days`, `limit`, `metric`, `severity`.
+- Frontend breach inbox controls:
+  - Days/limit/metric/severity filters.
+  - CSV export button for filtered breach rows.
+
+### Quality
+- Integration coverage for filtered breach inbox responses.
+- Integration coverage for SLA breach CSV export.
+
 ## v1.4-alerting-hooks
 Date: 2026-03-06
 

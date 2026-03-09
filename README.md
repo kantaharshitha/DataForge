@@ -84,14 +84,14 @@ Before production verification, set these Vercel environment variables:
 - Alerts summary: `/alerts/summary?window_hours=24`
 - Alerts SLA: `/alerts/sla?window_hours=24`
 - Alerts SLA history: `/alerts/sla/history?days=14`
-- Alerts SLA breaches inbox: `/alerts/sla/breaches?days=14&limit=50`
+- Alerts SLA breaches inbox: `/alerts/sla/breaches?days=14&limit=50&metric=open_high_alerts&severity=HIGH`
 - Alerts SLA check (ops): `POST /ops/alerts/sla/check?window_hours=24`
 - SLA breach dedup guard: one breach alert per metric per day.
 - Alerts acknowledge: `POST /alerts/acknowledge`
 - Alerts assign: `POST /alerts/assign`
 - Exports: `/exports/drift/{dataset_name}.csv`, `/exports/validation/{validation_run_id}.csv`, `/exports/lineage/{lineage_run_id}.json`
 - Export bundle: `/exports/run/{correlation_id}.zip`
-- Alert exports: `/exports/alerts.csv`, `/exports/alerts_acknowledgements.csv`
+- Alert exports: `/exports/alerts.csv`, `/exports/alerts_acknowledgements.csv`, `/exports/alerts_sla_breaches.csv`
 - Ops: `/ops/cleanup?keep_last_runs=20&keep_raw_files=200`
 - Ops pipeline observability: `/ops/pipeline/run?auto_accept_inference=true`
 - Ops runtime diagnostics: `/ops/runtime`
@@ -170,6 +170,7 @@ $env:GITHUB_TOKEN="<token>"
 - Manual SLA breach-check trigger from frontend (`Run SLA Check`).
 - SLA history trend table from frontend (`Load SLA History`).
 - SLA breach inbox table with suppressed count metadata (`Load Breach Inbox`).
+- SLA breach inbox filters (days, limit, metric, severity) and breach CSV export.
 
 ## Operations
 - Runbook: `OPERATIONS.md`

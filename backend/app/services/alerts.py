@@ -522,22 +522,47 @@ def get_alert_sla_history(days: int = 14) -> list[dict]:
     return [history[key] for key in sorted(history.keys())]
 
 
-def list_alert_sla_breaches(days: int = 14, limit: int = 100) -> dict:
+def list_alert_sla_breaches(
+    days: int = 14,
+    limit: int = 100,
+    *,
+    metric: str | None = None,
+    severity: str | None = None,
+) -> dict:
     safe_days = max(1, min(90, int(days)))
     safe_limit = max(1, min(500, int(limit)))
+    metric_filter = (metric or "").strip().lower() or None
+    severity_filter = (severity or "").strip().upper() or None
+    allowed_severity = {"LOW", "MEDIUM", "HIGH", "CRITICAL"}
+    if severity_filter and severity_filter not in allowed_severity:
+        raise ValueError("severity must be one of LOW, MEDIUM, HIGH, CRITICAL")
 
     with get_conn() as conn:
-        rows = conn.execute(
-            """
-            SELECT alert_id, alert_type, severity, title, message, context_json, delivery_status, created_at
-            FROM alert_events
-            WHERE alert_type LIKE 'SLA_BREACH_%'
-              AND created_at >= (CURRENT_TIMESTAMP - (? * INTERVAL '1 day'))
-            ORDER BY created_at DESC
-            LIMIT ?
-            """,
-            [safe_days, safe_limit],
-        ).fetchall()
+        if severity_filter:
+            rows = conn.execute(
+                """
+                SELECT alert_id, alert_type, severity, title, message, context_json, delivery_status, created_at
+                FROM alert_events
+                WHERE alert_type LIKE 'SLA_BREACH_%'
+                  AND created_at >= (CURRENT_TIMESTAMP - (? * INTERVAL '1 day'))
+                  AND severity = ?
+                ORDER BY created_at DESC
+                LIMIT 5000
+                """,
+                [safe_days, severity_filter],
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """
+                SELECT alert_id, alert_type, severity, title, message, context_json, delivery_status, created_at
+                FROM alert_events
+                WHERE alert_type LIKE 'SLA_BREACH_%'
+                  AND created_at >= (CURRENT_TIMESTAMP - (? * INTERVAL '1 day'))
+                ORDER BY created_at DESC
+                LIMIT 5000
+                """,
+                [safe_days],
+            ).fetchall()
 
         recent_suppressed = conn.execute(
             """
@@ -556,23 +581,32 @@ def list_alert_sla_breaches(days: int = 14, limit: int = 100) -> dict:
             """
         ).fetchone()
 
-    events = [
-        {
-            "alert_id": row[0],
-            "alert_type": row[1],
-            "severity": row[2],
-            "title": row[3],
-            "message": row[4],
-            "context": json.loads(row[5]) if row[5] else {},
-            "delivery_status": row[6],
-            "created_at": row[7],
-        }
-        for row in rows
-    ]
+    events: list[dict] = []
+    for row in rows:
+        context = json.loads(row[5]) if row[5] else {}
+        row_metric = str(context.get("metric", "")).strip().lower()
+        if metric_filter and row_metric != metric_filter:
+            continue
+        events.append(
+            {
+                "alert_id": row[0],
+                "alert_type": row[1],
+                "severity": row[2],
+                "title": row[3],
+                "message": row[4],
+                "context": context,
+                "delivery_status": row[6],
+                "created_at": row[7],
+            }
+        )
+        if len(events) >= safe_limit:
+            break
 
     return {
         "days": safe_days,
         "limit": safe_limit,
+        "metric": metric_filter,
+        "severity": severity_filter,
         "events": events,
         "suppressed_last_24h": int(recent_suppressed or 0),
         "last_run": {

@@ -341,7 +341,7 @@ def test_alert_escalation_scan_endpoint(client: TestClient) -> None:
     assert "ALERT_ESCALATED" in alert_types or payload["escalated_count"] == 0
 
 
-def test_alert_export_endpoints(client: TestClient) -> None:
+def test_alert_export_endpoints(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     products_ok = b"product_id,sku,unit_cost\nP001,SKU-1,10\nP002,SKU-2,12\n"
     products_bad = b"product_id,sku,unit_cost\nP001,SKU-1,-10\nP002,SKU-2,-12\n"
     assert client.post("/upload", files={"file": ("products.csv", products_ok, "text/csv")}).status_code == 200
@@ -368,6 +368,17 @@ def test_alert_export_endpoints(client: TestClient) -> None:
     exported_acks = client.get("/exports/alerts_acknowledgements.csv", params={"limit": 50})
     assert exported_acks.status_code == 200
     assert "acknowledged_by" in exported_acks.text
+
+    monkeypatch.setenv("DATAFORGE_SLA_MAX_ESCALATIONS_PER_DAY", "-1")
+    assert client.post("/ops/alerts/sla/check", params={"window_hours": 24}).status_code == 200
+
+    exported_breaches = client.get(
+        "/exports/alerts_sla_breaches.csv",
+        params={"days": 14, "limit": 50, "metric": "escalations_per_day", "severity": "MEDIUM"},
+    )
+    assert exported_breaches.status_code == 200
+    assert "metric" in exported_breaches.text
+    assert "escalations_per_day" in exported_breaches.text
 
 
 def test_alert_sla_endpoint(client: TestClient) -> None:
@@ -470,3 +481,13 @@ def test_alert_sla_breach_inbox_endpoint(client: TestClient, monkeypatch: pytest
     assert "suppressed_last_24h" in payload
     assert payload["suppressed_last_24h"] >= 1
     assert payload["last_run"] is not None
+
+    filtered = client.get(
+        "/alerts/sla/breaches",
+        params={"days": 14, "limit": 50, "metric": "open_high_alerts", "severity": "HIGH"},
+    )
+    assert filtered.status_code == 200
+    filtered_payload = filtered.json()
+    for event in filtered_payload["events"]:
+        assert event["severity"] == "HIGH"
+        assert event["context"].get("metric") == "open_high_alerts"
