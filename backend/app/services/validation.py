@@ -174,6 +174,12 @@ def _integrity_rules(conn, validation_run_id: str) -> list[RuleResult]:
         parent_table = _quote_ident(f"stg_{parent_dataset}")
         child_col = _quote_ident(child_column)
         parent_col = _quote_ident(parent_column)
+        child_columns = {r[0] for r in conn.execute(f"DESCRIBE {child_table}").fetchall()}
+        parent_columns = {r[0] for r in conn.execute(f"DESCRIBE {parent_table}").fetchall()}
+        if child_column not in child_columns or parent_column not in parent_columns:
+            # Accepted relationships can become stale after schema changes.
+            # Skip rules that no longer map to current table schemas.
+            continue
 
         evaluated = conn.execute(
             f"SELECT COUNT(*) FROM {child_table} WHERE {child_col} IS NOT NULL"
@@ -184,7 +190,7 @@ def _integrity_rules(conn, validation_run_id: str) -> list[RuleResult]:
             SELECT COUNT(*)
             FROM {child_table} c
             LEFT JOIN {parent_table} p
-              ON c.{child_col} = p.{parent_col}
+              ON CAST(c.{child_col} AS VARCHAR) = CAST(p.{parent_col} AS VARCHAR)
             WHERE c.{child_col} IS NOT NULL
               AND p.{parent_col} IS NULL
             """
@@ -197,7 +203,7 @@ def _integrity_rules(conn, validation_run_id: str) -> list[RuleResult]:
                 SELECT c.{child_col}::VARCHAR
                 FROM {child_table} c
                 LEFT JOIN {parent_table} p
-                  ON c.{child_col} = p.{parent_col}
+                  ON CAST(c.{child_col} AS VARCHAR) = CAST(p.{parent_col} AS VARCHAR)
                 WHERE c.{child_col} IS NOT NULL
                   AND p.{parent_col} IS NULL
                 LIMIT 5

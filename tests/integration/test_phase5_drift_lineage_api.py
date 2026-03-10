@@ -92,6 +92,40 @@ def test_lineage_build_and_queries(client: TestClient) -> None:
     assert len(by_dataset.json()["nodes"]) > 0
 
 
+def test_model_er_endpoint_returns_tables_and_relationships(client: TestClient) -> None:
+    customers = b"customer_id,customer_name\nC001,Acme\nC002,Northwind\n"
+    orders = b"order_id,customer_id,order_date,ship_date\nO1001,C001,2026-02-01,2026-02-02\n"
+
+    assert client.post("/upload", files={"file": ("customers.csv", customers, "text/csv")}).status_code == 200
+    assert client.post("/upload", files={"file": ("orders.csv", orders, "text/csv")}).status_code == 200
+
+    assert client.post("/inference/run").status_code == 200
+    candidates = client.get("/inference/candidates")
+    assert candidates.status_code == 200
+    if candidates.json():
+        target = candidates.json()[0]
+        assert client.post(
+            "/inference/decide",
+            json={"candidate_id": target["candidate_id"], "decision": "ACCEPTED"},
+        ).status_code == 200
+
+    response = client.get("/model/er")
+    assert response.status_code == 200
+    payload = response.json()
+    assert "tables" in payload
+    assert "relationships" in payload
+    assert len(payload["tables"]) >= 2
+    first_table = payload["tables"][0]
+    assert "name" in first_table
+    assert "columns" in first_table
+    if first_table["columns"]:
+        first_col = first_table["columns"][0]
+        assert "name" in first_col
+        assert "type" in first_col
+        assert "pk" in first_col
+        assert "fk" in first_col
+
+
 def test_export_endpoints_for_drift_validation_and_lineage(client: TestClient) -> None:
     v1 = b"customer_id,customer_name,amount\nC001,Acme,10.0\n"
     v2 = b"customer_id,amount,promo_code\nC001,ten,NEW10\n"

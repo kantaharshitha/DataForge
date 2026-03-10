@@ -280,6 +280,31 @@ class LineageGraphResponse(BaseModel):
     edges: list[LineageEdgeResponse] = Field(default_factory=list)
 
 
+class ERColumnResponse(BaseModel):
+    name: str
+    type: str
+    pk: bool = False
+    fk: bool = False
+
+
+class ERTableResponse(BaseModel):
+    name: str
+    columns: list[ERColumnResponse] = Field(default_factory=list)
+
+
+class ERRelationshipResponse(BaseModel):
+    from_table: str
+    from_column: str
+    to_table: str
+    to_column: str
+    cardinality: str | None = None
+
+
+class ERModelResponse(BaseModel):
+    tables: list[ERTableResponse] = Field(default_factory=list)
+    relationships: list[ERRelationshipResponse] = Field(default_factory=list)
+
+
 class OpsCleanupResponse(BaseModel):
     keep_last_runs: int
     keep_raw_files: int

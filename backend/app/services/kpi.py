@@ -90,6 +90,12 @@ def _table_exists(conn, table_name: str) -> bool:
     return bool(row and row[0] > 0)
 
 
+def _table_columns(conn, table_name: str) -> set[str]:
+    if not _table_exists(conn, table_name):
+        return set()
+    return {row[0] for row in conn.execute(f"DESCRIBE {table_name}").fetchall()}
+
+
 def _safe_div(numerator: float, denominator: float) -> float:
     if denominator == 0:
         return 0.0
@@ -172,6 +178,10 @@ def _kpi_values(conn) -> dict[str, float]:
     has_orders = _table_exists(conn, "stg_orders")
     has_inventory = _table_exists(conn, "stg_inventory_snapshots")
     has_products = _table_exists(conn, "stg_products")
+    order_item_cols = _table_columns(conn, "stg_order_items")
+    order_cols = _table_columns(conn, "stg_orders")
+    inventory_cols = _table_columns(conn, "stg_inventory_snapshots")
+    product_cols = _table_columns(conn, "stg_products")
 
     gross_revenue = 0.0
     net_revenue = 0.0
@@ -180,13 +190,16 @@ def _kpi_values(conn) -> dict[str, float]:
     cogs = 0.0
 
     if has_order_items:
+        qty_expr = "COALESCE(quantity, 0)" if "quantity" in order_item_cols else "0"
+        unit_price_expr = "COALESCE(unit_price, 0)" if "unit_price" in order_item_cols else "0"
+        discount_expr = "COALESCE(discount_amount, 0)" if "discount_amount" in order_item_cols else "0"
         row = conn.execute(
-            """
+            f"""
             SELECT
-                COALESCE(SUM(COALESCE(quantity,0) * COALESCE(unit_price,0)), 0) AS gross_revenue,
-                COALESCE(SUM(COALESCE(quantity,0) * COALESCE(unit_price,0) - COALESCE(discount_amount,0)), 0) AS net_revenue,
-                COALESCE(SUM(COALESCE(quantity,0)), 0) AS units_sold,
-                COALESCE(SUM(COALESCE(discount_amount,0)), 0) AS total_discount
+                COALESCE(SUM({qty_expr} * {unit_price_expr}), 0) AS gross_revenue,
+                COALESCE(SUM({qty_expr} * {unit_price_expr} - {discount_expr}), 0) AS net_revenue,
+                COALESCE(SUM({qty_expr}), 0) AS units_sold,
+                COALESCE(SUM({discount_expr}), 0) AS total_discount
             FROM stg_order_items
             """
         ).fetchone()
@@ -195,7 +208,13 @@ def _kpi_values(conn) -> dict[str, float]:
         units_sold = float(row[2])
         total_discount = float(row[3])
 
-        if has_products:
+        if (
+            has_products
+            and "quantity" in order_item_cols
+            and "product_id" in order_item_cols
+            and "product_id" in product_cols
+            and "unit_cost" in product_cols
+        ):
             cogs_row = conn.execute(
                 """
                 SELECT COALESCE(SUM(COALESCE(oi.quantity,0) * COALESCE(p.unit_cost,0)), 0)
@@ -210,37 +229,40 @@ def _kpi_values(conn) -> dict[str, float]:
     fulfillment_lag = 0.0
 
     if has_orders:
-        orders_count = int(
-            conn.execute("SELECT COUNT(DISTINCT order_id) FROM stg_orders").fetchone()[0]
-        )
-
-        repeat_row = conn.execute(
-            """
-            WITH customer_counts AS (
-                SELECT customer_id, COUNT(DISTINCT order_id) AS order_cnt
-                FROM stg_orders
-                WHERE customer_id IS NOT NULL
-                GROUP BY customer_id
+        if "order_id" in order_cols:
+            orders_count = int(
+                conn.execute("SELECT COUNT(DISTINCT order_id) FROM stg_orders").fetchone()[0]
             )
-            SELECT
-                COALESCE(SUM(CASE WHEN order_cnt > 1 THEN 1 ELSE 0 END), 0) AS repeat_customers,
-                COUNT(*) AS total_customers
-            FROM customer_counts
-            """
-        ).fetchone()
-        repeat_customer_rate = _safe_div(float(repeat_row[0]), float(repeat_row[1])) * 100.0
 
-        lag_row = conn.execute(
-            """
-            SELECT COALESCE(AVG(DATEDIFF('day', TRY_CAST(order_date AS DATE), TRY_CAST(ship_date AS DATE))), 0)
-            FROM stg_orders
-            WHERE order_date IS NOT NULL AND ship_date IS NOT NULL
-            """
-        ).fetchone()
-        fulfillment_lag = float(lag_row[0])
+        if "customer_id" in order_cols and "order_id" in order_cols:
+            repeat_row = conn.execute(
+                """
+                WITH customer_counts AS (
+                    SELECT customer_id, COUNT(DISTINCT order_id) AS order_cnt
+                    FROM stg_orders
+                    WHERE customer_id IS NOT NULL
+                    GROUP BY customer_id
+                )
+                SELECT
+                    COALESCE(SUM(CASE WHEN order_cnt > 1 THEN 1 ELSE 0 END), 0) AS repeat_customers,
+                    COUNT(*) AS total_customers
+                FROM customer_counts
+                """
+            ).fetchone()
+            repeat_customer_rate = _safe_div(float(repeat_row[0]), float(repeat_row[1])) * 100.0
+
+        if "order_date" in order_cols and "ship_date" in order_cols:
+            lag_row = conn.execute(
+                """
+                SELECT COALESCE(AVG(DATEDIFF('day', TRY_CAST(order_date AS DATE), TRY_CAST(ship_date AS DATE))), 0)
+                FROM stg_orders
+                WHERE order_date IS NOT NULL AND ship_date IS NOT NULL
+                """
+            ).fetchone()
+            fulfillment_lag = float(lag_row[0])
 
     stockout_rate = 0.0
-    if has_inventory:
+    if has_inventory and "stockout_flag" in inventory_cols:
         stock_row = conn.execute(
             """
             SELECT

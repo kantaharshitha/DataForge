@@ -28,6 +28,9 @@ let alertsSummary = null;
 let alertsSla = null;
 let alertsSlaHistory = [];
 let alertsSlaBreaches = null;
+let executiveDashboard = null;
+let erModelGraph = null;
+let erCy = null;
 
 function getSlaBreachQuery() {
   const days = Number(document.getElementById("slaBreachDays")?.value || "14");
@@ -94,6 +97,188 @@ async function refreshOpsAuthStatus() {
 
 function show(obj) {
   output.textContent = JSON.stringify(obj, null, 2);
+}
+
+function formatKpiValue(value) {
+  const n = Number(value);
+  if (Number.isNaN(n)) return String(value ?? "-");
+  if (Math.abs(n) >= 1000) return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  return n.toFixed(2).replace(/\.00$/, "");
+}
+
+function humanizeCode(code) {
+  return String(code || "")
+    .split("_")
+    .map((w) => (w ? `${w[0].toUpperCase()}${w.slice(1)}` : ""))
+    .join(" ");
+}
+
+function renderExecutiveDashboard(payload = executiveDashboard) {
+  const cardsWrap = document.getElementById("dashboardCards");
+  const tableBody = document.querySelector("#dashboardTable tbody");
+  const generatedAt = document.getElementById("dashboardGeneratedAt");
+  const trustScore = document.getElementById("dashboardTrustScore");
+  const trustStatus = document.getElementById("dashboardTrustStatus");
+
+  if (!cardsWrap || !tableBody || !generatedAt || !trustScore || !trustStatus) return;
+
+  cardsWrap.innerHTML = "";
+  tableBody.innerHTML = "";
+  if (!payload || !Array.isArray(payload.cards)) {
+    generatedAt.textContent = "No dashboard loaded.";
+    trustScore.textContent = "Trust Score: -";
+    trustStatus.textContent = "Validation Status: -";
+    return;
+  }
+
+  generatedAt.textContent = `Generated at: ${payload.generated_at || "-"}`;
+
+  const trust = payload.trust_context || {};
+  trustScore.textContent = `Trust Score: ${trust.trust_score ?? "-"}`;
+  trustStatus.textContent = `Validation Status: ${trust.status ?? "-"}`;
+  if ((trust.trust_score ?? 0) < 80) {
+    trustScore.style.background = "#fff7ed";
+    trustScore.style.borderColor = "#f3c77a";
+    trustScore.style.color = "#92400e";
+  } else {
+    trustScore.style.background = "#ecfdf3";
+    trustScore.style.borderColor = "#a7f3d0";
+    trustScore.style.color = "#166534";
+  }
+
+  for (const card of payload.cards) {
+    const cardEl = document.createElement("div");
+    cardEl.className = "kpi-card";
+    cardEl.innerHTML = `
+      <div class="label">${humanizeCode(card.kpi_code)}</div>
+      <div class="value">${formatKpiValue(card.value)}</div>
+    `;
+    cardsWrap.appendChild(cardEl);
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${card.kpi_code ?? ""}</td>
+      <td>${formatKpiValue(card.value)}</td>
+    `;
+    tableBody.appendChild(tr);
+  }
+}
+
+function renderERTableDetails(tableName, payload = erModelGraph) {
+  const tbody = document.querySelector("#erColumnTable tbody");
+  const detail = document.getElementById("erDetails");
+  if (!tbody || !detail) return;
+  tbody.innerHTML = "";
+  if (!payload || !Array.isArray(payload.tables)) return;
+  const table = payload.tables.find((t) => t.name === tableName);
+  if (!table) return;
+  detail.querySelector("strong").textContent = `Table Details: ${table.name}`;
+  for (const col of table.columns || []) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${col.name ?? ""}</td>
+      <td>${col.type ?? ""}</td>
+      <td>${col.pk ? "YES" : ""}</td>
+      <td>${col.fk ? "YES" : ""}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+function renderERGraph(payload = erModelGraph) {
+  const graphEl = document.getElementById("erGraph");
+  const metaEl = document.getElementById("erMeta");
+  if (!graphEl || !metaEl) return;
+
+  if (!payload || !Array.isArray(payload.tables)) {
+    metaEl.textContent = "No ER model loaded.";
+    graphEl.innerHTML = "";
+    return;
+  }
+
+  const tableMap = new Map((payload.tables || []).map((t) => [t.name, t]));
+  const nodes = (payload.tables || []).map((table) => {
+    const pkCols = (table.columns || []).filter((c) => c.pk).map((c) => c.name);
+    const pkLabel = pkCols.length ? `PK: ${pkCols.join(", ")}` : "PK: -";
+    return {
+      data: {
+        id: table.name,
+        label: `${table.name}\n${pkLabel}`,
+      },
+    };
+  });
+  const edges = (payload.relationships || [])
+    .filter((rel) => tableMap.has(rel.from_table) && tableMap.has(rel.to_table))
+    .map((rel, i) => ({
+      data: {
+        id: `rel_${i}_${rel.from_table}_${rel.from_column}_${rel.to_table}_${rel.to_column}`,
+        source: rel.from_table,
+        target: rel.to_table,
+        label: `${rel.from_column} → ${rel.to_column}${rel.cardinality ? ` (${rel.cardinality})` : ""}`,
+      },
+    }));
+
+  metaEl.textContent = `Tables=${nodes.length}, relationships=${edges.length}`;
+
+  if (typeof cytoscape === "undefined") {
+    graphEl.innerHTML = "<p style='color:#b42318;padding:10px;'>Cytoscape failed to load.</p>";
+    return;
+  }
+
+  if (erCy) {
+    erCy.destroy();
+    erCy = null;
+  }
+
+  erCy = cytoscape({
+    container: graphEl,
+    elements: [...nodes, ...edges],
+    style: [
+      {
+        selector: "node",
+        style: {
+          "background-color": "#0b69ff",
+          color: "#ffffff",
+          "text-valign": "center",
+          "text-halign": "center",
+          label: "data(label)",
+          "font-size": 10,
+          "text-wrap": "wrap",
+          "text-max-width": 170,
+          width: 170,
+          height: 70,
+          shape: "roundrectangle",
+        },
+      },
+      {
+        selector: "edge",
+        style: {
+          width: 2,
+          "line-color": "#94a3b8",
+          "target-arrow-color": "#94a3b8",
+          "target-arrow-shape": "triangle",
+          "curve-style": "bezier",
+          label: "data(label)",
+          "font-size": 9,
+          color: "#334155",
+          "text-background-color": "#ffffff",
+          "text-background-opacity": 0.9,
+          "text-background-padding": 2,
+        },
+      },
+    ],
+    layout: {
+      name: "cose",
+      animate: false,
+      fit: true,
+      padding: 20,
+      nodeRepulsion: 9000,
+    },
+  });
+
+  erCy.on("tap", "node", (evt) => {
+    renderERTableDetails(evt.target.id(), payload);
+  });
 }
 
 function fillSelect(selectEl, options, getLabel, getValue) {
@@ -380,7 +565,9 @@ document.getElementById("btnRuntimeInfo").onclick = async () => {
 document.getElementById("btnPipelineRun").onclick = async () => {
   try {
     pipelineLastRun = await callApi("/ops/pipeline/run?auto_accept_inference=true", { method: "POST" });
+    executiveDashboard = await callApi("/dashboard/executive");
     renderPipelineObservability(pipelineLastRun);
+    renderExecutiveDashboard(executiveDashboard);
     show(pipelineLastRun);
   } catch (e) {
     show({ error: e.message });
@@ -450,7 +637,33 @@ document.getElementById("btnRunKpi").onclick = async () => {
 };
 
 document.getElementById("btnDashboard").onclick = async () => {
-  try { show(await callApi("/dashboard/executive")); } catch (e) { show({ error: e.message }); }
+  try {
+    executiveDashboard = await callApi("/dashboard/executive");
+    renderExecutiveDashboard(executiveDashboard);
+    show(executiveDashboard);
+  } catch (e) {
+    show({ error: e.message });
+  }
+};
+
+document.getElementById("btnERModel").onclick = async () => {
+  try {
+    erModelGraph = await callApi("/model/er");
+    renderERGraph(erModelGraph);
+    show(erModelGraph);
+  } catch (e) {
+    show({ error: e.message });
+  }
+};
+
+document.getElementById("btnERModelRefresh").onclick = async () => {
+  try {
+    erModelGraph = await callApi("/model/er");
+    renderERGraph(erModelGraph);
+    show(erModelGraph);
+  } catch (e) {
+    show({ error: e.message });
+  }
 };
 
 document.getElementById("btnAlerts").onclick = async () => {
@@ -857,3 +1070,5 @@ document.getElementById("btnAlertsNext").onclick = () => {
 };
 
 refreshOpsAuthStatus();
+renderExecutiveDashboard();
+renderERGraph();

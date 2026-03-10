@@ -50,6 +50,65 @@
       padding: 14px;
       margin-bottom: 14px;
     }
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .kpi-card {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
+    }
+    .kpi-card .label {
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .kpi-card .value {
+      font-size: 22px;
+      font-weight: 700;
+      margin-top: 4px;
+    }
+    .metric-chip {
+      display: inline-block;
+      margin-right: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #eef3fb;
+      color: #334155;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .er-layout {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .er-canvas {
+      min-height: 420px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #ffffff;
+    }
+    .er-side {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: #fbfdff;
+      max-height: 420px;
+      overflow: auto;
+    }
+    @media (max-width: 900px) {
+      .er-layout {
+        grid-template-columns: 1fr;
+      }
+    }
     .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
     input[type="file"] { max-width: 360px; }
     .status { font-weight: 600; }
@@ -96,6 +155,7 @@
       <button id="btnValidation" class="primary">Run Validation</button>
       <button id="btnLineageBuild">Build Lineage</button>
       <button id="btnLineageGraph">Lineage Graph</button>
+      <button id="btnERModel">ER Model</button>
       <button id="btnSeedKpi">Seed KPIs</button>
       <button id="btnRunKpi" class="primary">Run KPIs</button>
       <button id="btnDashboard">Executive Dashboard</button>
@@ -236,6 +296,32 @@
           </thead>
           <tbody></tbody>
         </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>ER Model</h3>
+      <div class="row">
+        <button id="btnERModelRefresh">Refresh ER Model</button>
+        <span id="erMeta" style="color:#5b6472"></span>
+      </div>
+      <div class="er-layout">
+        <div id="erGraph" class="er-canvas"></div>
+        <div id="erDetails" class="er-side">
+          <strong>Table Details</strong>
+          <p style="color:#5b6472;">Click a table node to inspect columns.</p>
+          <table id="erColumnTable">
+            <thead>
+              <tr>
+                <th>Column</th>
+                <th>Type</th>
+                <th>PK</th>
+                <th>FK</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -381,8 +467,32 @@
       <h3>Output</h3>
       <pre id="output">Ready.</pre>
     </div>
+
+    <div class="panel">
+      <h3>Executive Dashboard View</h3>
+      <div class="row">
+        <span id="dashboardGeneratedAt" style="color:#5b6472;">No dashboard loaded.</span>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <span id="dashboardTrustScore" class="metric-chip">Trust Score: -</span>
+        <span id="dashboardTrustStatus" class="metric-chip">Validation Status: -</span>
+      </div>
+      <div id="dashboardCards" class="cards-grid"></div>
+      <div style="margin-top:12px; overflow:auto;">
+        <table id="dashboardTable">
+          <thead>
+            <tr>
+              <th>KPI Code</th>
+              <th>Value</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
+  <script src="https://unpkg.com/cytoscape@3.30.3/dist/cytoscape.min.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>

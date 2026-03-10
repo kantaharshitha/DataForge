@@ -1,5 +1,26 @@
 # Changelog
 
+## v1.6-er-model-explorer
+Date: 2026-03-10
+
+### Added
+- ER Model Explorer backend service:
+  - `backend/app/services/model_graph.py`
+  - Deterministic ER payload from metadata tables (`dataset_registry`, `schema_versions`, `profiling_*`, accepted `relationship_candidates`).
+- ER Model API:
+  - `GET /model/er`
+- Frontend ER visualization:
+  - Cytoscape-based model graph (table nodes, relationship edges, cardinality labels).
+  - Table details side panel with full column list and PK/FK flags.
+- Executive dashboard visual rendering:
+  - KPI cards, trust score/status chips, KPI table (in addition to JSON output).
+
+### Fixed
+- Pipeline run stability improvements:
+  - Validation integrity checks now tolerate type mismatches in FK comparisons.
+  - Stale accepted relationships (missing columns after schema changes) are skipped in integrity checks.
+  - KPI calculations now guard against missing optional columns in staging tables.
+
 ## v1.5.1-alert-sla-inbox-filters
 Date: 2026-03-09
 

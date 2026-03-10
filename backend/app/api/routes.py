@@ -30,6 +30,7 @@ from app.models import (
     DriftEventResponse,
     DriftRunExecuteResponse,
     DriftRunResponse,
+    ERModelResponse,
     ExecutiveDashboardResponse,
     HealthResponse,
     InferenceRunResponse,
@@ -92,6 +93,7 @@ from app.services.lineage import (
     get_lineage_graph,
     list_lineage_runs,
 )
+from app.services.model_graph import get_er_model_graph
 from app.services.validation import (
     get_latest_trust_score,
     get_validation_results,
@@ -346,6 +348,11 @@ def get_lineage_dataset_view(dataset_name: str, lineage_run_id: str | None = Non
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/model/er", response_model=ERModelResponse)
+def get_er_model_view() -> ERModelResponse:
+    return ERModelResponse(**get_er_model_graph())
 
 
 @router.get("/exports/drift/{dataset_name}.csv", response_class=PlainTextResponse)

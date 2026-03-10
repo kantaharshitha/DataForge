@@ -78,6 +78,7 @@ Before production verification, set these Vercel environment variables:
 - Inference: `/inference/run`, `/inference/candidates`, `/inference/decide`
 - Drift: `/drift/run`, `/drift/runs`, `/drift/latest`, `/drift/events/{dataset_name}`
 - Lineage: `/lineage/build`, `/lineage/runs`, `/lineage/graph`, `/lineage/kpi/{kpi_code}`, `/lineage/dataset/{dataset_name}`
+- Data model explorer: `/model/er`
 - Validation/Trust: `/validation/run`, `/validation/runs`, `/validation/results/{validation_run_id}`, `/trust/latest`
 - KPI/Dashboard: `/kpi/seed`, `/kpi/registry`, `/kpi/run`, `/kpi/latest`, `/dashboard/executive`
 - Alerts: `/alerts/recent?limit=50`
@@ -171,6 +172,8 @@ $env:GITHUB_TOKEN="<token>"
 - SLA history trend table from frontend (`Load SLA History`).
 - SLA breach inbox table with suppressed count metadata (`Load Breach Inbox`).
 - SLA breach inbox filters (days, limit, metric, severity) and breach CSV export.
+- Executive Dashboard visual panel (KPI cards + trust/status chips + KPI table).
+- ER Model explorer with Cytoscape graph (tables/relationships) and table-column side panel on node click.
 
 ## Operations
 - Runbook: `OPERATIONS.md`
